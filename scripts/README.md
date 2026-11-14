@@ -44,8 +44,8 @@ it.
 
 | Directory | Contents |
 |---|---|
-| [`agent/`](agent/README.md) | The `@claude` pipeline's Node package, vendored from yorkie-team/yorkie with its own npm lockfile; outside the pnpm workspace and the root lint and licence gates. Its README lists what was adapted here and how to sync. Tested by `agent-scripts.yml`, not `pnpm test:scripts`. |
-| [`test/`](test/) | `node --test` suites for the scripts and hooks above, run by `pnpm test:scripts` and in CI. Cases plant their trees under the OS temp directory. `harness-hooks.test.mjs` is the exception: its facts are about this tree, so it reads the checkout read-only, and every git write it makes goes to a scratch repository addressed with `git -C` and a stripped `GIT_*` environment. |
+| [`agent/`](agent/README.md) | The `@claude` pipeline's Node package: the same bytes as yorkie-team/yorkie's, with its own npm lockfile; outside the pnpm workspace and the root lint and licence gates. What this repository owns — its configuration, the test that grades it, the source commit and how to sync — is in [`.github/agent-harness/`](../.github/agent-harness/README.md). Tested by `agent-scripts.yml`, not `pnpm test:scripts`. |
+| [`test/`](test/) | `node --test` suites for the scripts and hooks above, run by `pnpm test:scripts` and in CI. Cases plant their trees under the OS temp directory. `agent-toolchain-npmrc.test.mjs` reads two files of the checkout and writes nothing. `harness-hooks.test.mjs` is the other exception: its facts are about this tree, so it reads the checkout read-only, and every git write it makes goes to a scratch repository addressed with `git -C` and a stripped `GIT_*` environment. |
 
 ## Setup
 

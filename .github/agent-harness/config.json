@@ -1,0 +1,138 @@
+{
+  "repo": {
+    "name": "yorkie-js-sdk",
+    "appSlug": "yorkie-team-agent",
+    "botLogins": [
+      "github-actions[bot]",
+      "yorkie-team-agent[bot]"
+    ],
+    "appLogins": [
+      "yorkie-team-agent[bot]",
+      "app/yorkie-team-agent"
+    ]
+  },
+  "docs": {
+    "commandVerbsRef": "https://github.com/yorkie-team/yorkie/blob/main/docs/design/agent-command-verbs.md"
+  },
+  "ci": {
+    "definingPaths": [
+      "package.json",
+      "packages/*/package.json",
+      "examples/*/package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      ".npmrc",
+      "eslint.config.mjs",
+      "packages/*/eslint.config.mjs",
+      ".prettierrc.js",
+      ".prettierignore",
+      "packages/*/tsconfig*.json",
+      "packages/*/vite.config.*",
+      "packages/*/vite.build.*",
+      "packages/*/vitest.config.*",
+      "codecov.yml",
+      "docker/**",
+      "scripts/*.mjs",
+      "packages/sdk/test/conformance/sync.sh",
+      "scripts/test/**",
+      "scripts/fixtures/**",
+      "lint-staged.config.mjs"
+    ],
+    "gateLabel": "lint, builds, unit and integration suites",
+    "handoffSummary": [
+      "- ✅ CI is green (eslint, the licence and doc-link checks, the script tests,",
+      "  the sdk/react/schema builds and the devtools typecheck, the examples build,",
+      "  and the sdk, prosemirror, react and schema suites — the sdk's and",
+      "  prosemirror's against a real Yorkie server and MongoDB) for this exact head",
+      "  SHA, on a PR based on the default branch — and the branch changes none of",
+      "  the paths that define what CI does (the workflows, the `package.json` files,",
+      "  `pnpm-lock.yaml`, the eslint/Prettier/tsconfig/vite/vitest configs,",
+      "  `docker/**`, `scripts/*.mjs`, `scripts/test/**`, `scripts/fixtures/**`), so",
+      "  the CI definition that run executed came from `main` rather than from the",
+      "  branch."
+    ],
+    "laneReports": false
+  },
+  "review": {
+    "classRules": {
+      "code-adjacent": [
+        "packages/*/test/**",
+        "**/__fixtures__/**",
+        "**/fixtures/**",
+        "**/testdata/**"
+      ],
+      "policy": [
+        "package.json",
+        "packages/*/package.json",
+        "examples/*/package.json",
+        "scripts/agent/package.json",
+        "scripts/agent/package-lock.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        ".npmrc",
+        "eslint.config.mjs",
+        "packages/*/eslint.config.mjs",
+        ".prettierrc.js",
+        ".prettierignore",
+        "lint-staged.config.mjs",
+        "codecov.yml",
+        "packages/*/tsconfig*.json",
+        "packages/*/vite.config.*",
+        "packages/*/vite.build.*",
+        "packages/*/vitest.config.*",
+        "docker/**",
+        ".githooks/**"
+      ]
+    },
+    "sourceGlobs": [
+      "packages/**"
+    ],
+    "sharedPrimitivesNote": "This\n  repo layers JSON-like → CRDT → Common, and the shared primitives live in\n  `packages/sdk/src/` (`document/crdt/`, `document/json/`, `util/`).",
+    "diffExcludes": [
+      "packages/sdk/src/api/yorkie/v1/*_pb.ts",
+      "packages/schema/antlr/*.ts",
+      "packages/schema/antlr/*.interp",
+      "packages/schema/antlr/*.tokens"
+    ]
+  },
+  "fixer": {
+    "verifyCommand": "pnpm verify:fast",
+    "verifyDescription": "lint, the Apache licence-header check, the doc links, the SDK build and every unit suite",
+    "verifyFailureHint": "",
+    "integrationWarning": "Do NOT run the integration suites (`pnpm sdk test`, `pnpm prosemirror test`): they need a Yorkie server and MongoDB this job does not stand up",
+    "integrationRerunBy": "them in CI",
+    "ciFailureNote": "If the failure is in one of them, fix it from the diagnosis and let CI confirm.",
+    "generatedCodeNote": "Never hand-edit generated code: packages/sdk/src/api/yorkie/v1/*_pb.ts (from `pnpm sdk build:proto`) or packages/schema/antlr/*.ts (from `pnpm schema build:schema`). The `.proto` files beside the SDK's generated code are copies: their source of truth is the server repository, yorkie-team/yorkie.",
+    "apiChangeNote": "If the issue requires an API change, say so on the issue and stop rather than working around it.",
+    "keepReproducerAs": "Keep it as `it.fails(...)` with a comment naming the finding",
+    "disabledTestForms": "turns into `.skip`/`.todo`",
+    "commitNote": "Commit messages follow this repository's convention: subject <= 70 characters, a blank line, body wrapped at 80.",
+    "licenceScope": "Apache 2.0 licence header on every new source file under packages/*/src, packages/*/test and scripts/ (`pnpm verify:license` checks it).",
+    "todoTrackingLine": "Its second line is exactly `Tracked as #__ISSUE_NUMBER__` — that wording, unbolded, is what `scripts/tasks-check.mjs --remote` asks GitHub about, and a todo without it is never checked at all.",
+    "implementVerifyStep": "VERIFY WITH `pnpm verify:fast` (lint, licence headers, doc links, the SDK build and every unit suite; no server needed), in the foreground, before the final push. Do NOT run the integration suites (`pnpm sdk test`, `pnpm prosemirror test`): they need a Yorkie server and MongoDB this run does not stand up. A TARGETED unit file (`pnpm sdk exec vitest run test/unit/<file>`) is fine. The PR's CI runs the full lanes, integration included.",
+    "replyVerifyInstruction": "run `pnpm verify:fast` (never the integration suites, which need a server this run does not have)",
+    "toolchainSteps": "the pnpm setup, the dependency install",
+    "lastResortDiagnosis": "Re-run the gate locally: `pnpm verify:fast` (lint, licence headers, doc links, the SDK build and the unit suites)."
+  },
+  "tests": {
+    "rules": [
+      "vitest"
+    ]
+  },
+  "fixGuard": {
+    "replicatedRuleGlobs": [
+      "packages/sdk/src/document/crdt/*.ts",
+      "packages/sdk/src/document/time/*.ts"
+    ],
+    "replicatedRuleNotice": "**Replicated CRDT rule changed in TypeScript only (warning).** yorkie must apply the same rule or JS clients and a Go server diverge. Link the matching yorkie change in the PR body, or say why none is needed:",
+    "counterpartRepos": [
+      "yorkie-team/yorkie"
+    ]
+  },
+  "redact": {
+    "extraPatterns": []
+  },
+  "ask": {
+    "permittedMcpTools": []
+  }
+}

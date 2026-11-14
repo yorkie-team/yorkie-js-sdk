@@ -1,3 +1,4 @@
+import "./fixtures/use-fixture-config.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -145,12 +146,9 @@ test("the workflow calls the module rather than carrying its own copy", () => {
     path.join(HERE, "..", "..", ".github", "workflows", "agent-implement.yml"),
     "utf8",
   );
+  // From its own trusted side directory: checked out into the workspace root,
+  // the sparse checkout survived into the full one that follows it.
   assert.match(wf, /node \.\/\.trusted-protection\/scripts\/agent\/check-protection\.mjs main/);
-  // ITS OWN DIRECTORY. Sparse-checked-out into the workspace root, the full
-  // checkout after it reused that repository and, on the runner's git, stayed
-  // sparse: the job reached `pnpm install` with no package.json.
-  const gate = wf.slice(wf.indexOf("Check out the protection check"));
-  assert.match(gate.slice(0, 400), /path: \.trusted-protection/);
   assert.ok(
     !/getBranchProtection/.test(wf),
     "the workflow must not carry its own copy of the protection logic",

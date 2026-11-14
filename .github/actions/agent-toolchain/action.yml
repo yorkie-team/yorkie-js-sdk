@@ -1,0 +1,224 @@
+# The toolchain an agent job needs before it can verify a change in THIS
+# repository. One of the per-repository files of the agent harness: the
+# `agent-*.yml` workflows are the same in every repository that runs the
+# harness, and each calls this action where it used to carry the setup steps
+# inline (scripts/agent/README.md, "The toolchain action").
+#
+# IT RUNS WITH A TOKEN IN THE ENVIRONMENT AND AN UNTRUSTED BRANCH IN THE
+# WORKSPACE. In the fix jobs the workspace is the pull request's branch and an
+# App token is already minted, so nothing here may execute what the branch
+# wrote, and nothing the branch wrote may decide what runs here. The callers
+# take this file from `main`, never from the branch (config-wiring.test.mjs
+# holds them to it).
+#
+# This does not stop the AGENT running branch code — it has to, to verify, and
+# it holds the token by design because it has to push. What must not happen is
+# the job reaching the agent having already run the branch's build files for
+# its own convenience.
+#
+# THE RUNNER DOES NOTHING WITH THE BRANCH'S FILES. One step, in this order:
+#
+#   on the runner   1. fetch pnpm: one fixed file from the npm registry,
+#                      checked against the hash pinned below, unpacked under
+#                      the runner's temp directory, and put on the PATH of
+#                      later steps through a launcher written here;
+#                   2. record what must not change (see the tripwire);
+#   in a container  3. check the branch's lockfile, workspace file and
+#                      manifests against an allow-list, install, and check
+#                      the result — `entry.sh`, beside this file;
+#   on the runner   4. compare with the record.
+#
+# The runner never runs pnpm, never changes directory into the workspace, and
+# never writes, renames or deletes anything in it. Everything it runs comes
+# from this directory or from the fixed download, with a scrubbed environment
+# and its working directory in the runner's temp directory. What it reads of
+# the workspace is file names, kinds and link targets, never following a
+# link, plus the contents of `.git`, which the branch does not supply.
+#
+# THE INSTALL CAN WRITE ONLY TO THE WORKSPACE'S OWN FILES. Two layers, and the
+# first does not depend on the second being complete.
+#
+# 1. CONTAINMENT. The container's only writable mount is the workspace, at its
+#    own path. The repository's `.git` and every `.trusted-*` checkout in it
+#    are covered by an empty read-only directory, so the install can neither
+#    read nor change them, and `main`'s `.npmrc` (the copy beside this file)
+#    is mounted read-only over the root `.npmrc`, so the branch's is not read
+#    and nothing has to be moved aside and put back. Nothing else of the
+#    runner — its temp directory, where the trusted scripts and configuration
+#    are staged, its home, its tools — is in the container at all. No
+#    environment is passed in, the user is the runner's own and unprivileged,
+#    and the image is pinned by digest. Whatever a lockfile, a manifest or a
+#    package fetched from the registry tells the install to do, the furthest
+#    it can reach is a file of the branch's own tree. If Docker is not
+#    available the step FAILS: there is no uncontained fallback.
+# 2. AN ALLOW-LIST. Inside the container and before the install,
+#    `check-install-inputs.mjs` refuses a tree that is not of exactly the
+#    shape this repository's own has: registry packages by integrity hash,
+#    registry or `workspace:` specifiers, plain names, a fixed set of manifest
+#    keys, no `node_modules`, no `.npmrc` but the root's, no symbolic link
+#    that leaves the workspace. YAML is read strictly. This is what keeps the
+#    install to registry packages; it cannot see inside a package the
+#    registry serves, which is why it is the second layer.
+#
+# And a tripwire, on the runner: `.git`, the runner's temp directory, the
+# directories around the workspace and the package-manager settings in the
+# runner's home are recorded before the container starts and compared after
+# it exits, and the workspace is walked for a symbolic link that leads out of
+# it or into `.git`, a trusted checkout or the temp directory. With the
+# container in place none of this can differ; if it ever does, the step fails
+# before the agent runs.
+#
+# WHAT THE CONTAINER STILL SHARES: the workspace's files, which are the
+# branch's anyway, and the network (`--network bridge`: the install needs the
+# registry, and egress is otherwise open). It holds no credential to send
+# anywhere.
+#
+# NODE IS NOT SET UP HERE. Every job that calls this action has already run
+# `actions/setup-node` for the harness scripts, with the Node `ci.yml`'s build
+# job uses, and without a cache. The launcher this step writes runs pnpm with
+# that Node.
+#
+# NO OTHER ACTION, AND NO CACHE. This file has no `uses:`: an action that
+# sets a package manager up reads the workspace to do it. And a cache post
+# step would SAVE a store after the agent ran, under a key the agent controls
+# through `pnpm-lock.yaml`, in a scope `ci.yml` and the npm publish restore.
+#
+# THIS WAS AUDITED AGAINST PNPM 9, which reads settings from `.npmrc` and the
+# command line only. A later major reads more of them from files the branch
+# controls, so moving the version below means auditing `entry.sh` and the
+# checker again; `repo.test.mjs` fails on any other major to say so.
+#
+# `.github/agent-harness/repo.test.mjs` pins all of this: the pnpm version and
+# its hash together, the pnpm major against `ci.yml`, the image digest, the
+# container's mounts and options, the install flags, what runs on the runner
+# and that none of it names a workspace path to write, and `npmrc` here
+# against the root `.npmrc`.
+name: Agent toolchain
+description: pnpm and the workspace dependencies an agent job verifies with, installed in a container without the runner running or changing anything in the working tree.
+runs:
+  using: composite
+  steps:
+    - name: Install dependencies (in a container, lockfile-exact, no lifecycle scripts)
+      shell: bash
+      env:
+        # Where the runner loaded this action from. Through `env`, from the
+        # expression, rather than from the runner's variable of the same
+        # meaning.
+        ACTION_PATH: ${{ github.action_path }}
+        # Node 22 on Debian, by digest: the Node the callers set up, and the C
+        # library the runner has, so what is installed runs on the runner.
+        IMAGE: node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee
+        # pnpm, exactly: the version and the registry's own hash of its
+        # tarball. They change together or not at all.
+        PNPM_VERSION: 9.15.9
+        PNPM_INTEGRITY: sha512-aARhQYk8ZvrQHAeSMRKOmvuJ74fiaR1p5NQO7iKJiClf1GghgbrlW1hBjDolO95lpQXsfF+UA+zlzDzTfc8lMQ==
+      run: |
+        set -euo pipefail
+        refuse() {
+          echo "::error::agent-toolchain: $1" >&2
+          exit 1
+        }
+        # This action's own files, from the same checkout as these lines.
+        for file in entry.sh check-install-inputs.mjs npmrc; do
+          if [ ! -f "$ACTION_PATH/$file" ] || [ -L "$ACTION_PATH/$file" ]; then
+            refuse "the toolchain action's $file is missing beside action.yml"
+          fi
+        done
+        checker="$ACTION_PATH/check-install-inputs.mjs"
+        root="${GITHUB_WORKSPACE:-}"
+        temp="${RUNNER_TEMP:-}"
+        case "$root" in /*) ;; *) refuse "GITHUB_WORKSPACE is not an absolute path" ;; esac
+        case "$root" in *[!A-Za-z0-9._/-]*) refuse "the workspace path holds a character this step does not mount" ;; esac
+        case "$root" in *..*) refuse "the workspace path holds a parent-directory component" ;; esac
+        if [ -L "$root" ]; then refuse "the workspace path is a symbolic link"; fi
+        case "$temp" in /*) ;; *) refuse "RUNNER_TEMP is not an absolute path" ;; esac
+        case "$PNPM_VERSION" in 9.*) ;; *) refuse "pnpm is not major 9" ;; esac
+        # NOT IN THE WORKSPACE. Every command below runs from the runner's
+        # temp directory.
+        cd "$temp"
+        # CONTAINED, OR NOT AT ALL.
+        command -v docker > /dev/null || refuse "Docker is not available; the install does not run outside a container"
+
+        # This step's own directory: the download, an empty Docker
+        # configuration, the empty directory that covers `.git`, and the
+        # record the tripwire compares. Removed however the step ends.
+        work="$(mktemp -d "$temp/agent-toolchain.XXXXXX")"
+        tools=""
+        cleanup() {
+          chmod -R u+w "$work" 2> /dev/null || true
+          rm -rf "$work"
+          if [ -n "$tools" ]; then rm -rf "$tools"; fi
+        }
+        trap cleanup EXIT
+        mkdir "$work/empty" "$work/docker"
+        chmod 555 "$work/empty"
+
+        # 1. PNPM. One fixed file from the registry, checked against the hash
+        # pinned above before anything is unpacked, into a directory of its
+        # own. Nothing here reads the workspace or a setting from anywhere.
+        tools="$(mktemp -d "$temp/agent-pnpm.XXXXXX")"
+        chmod 755 "$tools"
+        env -i PATH="$PATH" curl -q --fail --silent --show-error --proto '=https' --tlsv1.2 --retry 3 --max-time 120 \
+          --output "$work/pnpm.tgz" "https://registry.npmjs.org/pnpm/-/pnpm-$PNPM_VERSION.tgz"
+        actual="sha512-$(env -i PATH="$PATH" openssl dgst -sha512 -binary "$work/pnpm.tgz" | env -i PATH="$PATH" openssl base64 -A)"
+        [ "$actual" = "$PNPM_INTEGRITY" ] || refuse "the pnpm tarball is not the one pinned (its hash differs)"
+        mkdir "$tools/pnpm" "$tools/bin"
+        env -i PATH="$PATH" tar -xzf "$work/pnpm.tgz" -C "$tools/pnpm" --strip-components 1
+        [ -f "$tools/pnpm/bin/pnpm.cjs" ] || refuse "the pnpm tarball does not hold bin/pnpm.cjs"
+        # For the steps after this one: `pnpm` is this copy, run by the Node
+        # the job set up.
+        printf '#!/bin/sh\nexec node "%s/pnpm/bin/pnpm.cjs" "$@"\n' "$tools" > "$tools/bin/pnpm"
+        chmod 755 "$tools/bin/pnpm"
+        echo "$tools/bin" >> "$GITHUB_PATH"
+
+        # What the container may not see or touch inside the workspace, and
+        # the one file it reads in place of the branch's. Three fixed names
+        # are looked at, without following a link.
+        covered=()
+        if [ -L "$root/.git" ] || [ ! -d "$root/.git" ]; then
+          refuse "the workspace has no .git directory of its own to cover"
+        fi
+        covered+=(--volume "$work/empty:$root/.git:ro")
+        for dir in "$root"/.trusted-*; do
+          if [ -d "$dir" ] && [ ! -L "$dir" ]; then
+            case "${dir##*/}" in *[!A-Za-z0-9._-]*) refuse "a .trusted-* directory has a name this step does not mount" ;; esac
+            covered+=(--volume "$work/empty:$dir:ro")
+          fi
+        done
+        if [ ! -f "$root/.npmrc" ] || [ -L "$root/.npmrc" ]; then
+          refuse "the workspace has no regular .npmrc at its root to stand main's in for"
+        fi
+
+        # 2. THE RECORD.
+        env -i PATH="$PATH" node "$checker" snapshot "$root" "$work/before.json" "$temp" "$work" "${HOME:-}"
+
+        # 3. THE CONTAINER. The workspace at the SAME path as on the runner,
+        # so every path the install records is one the runner can use
+        # afterwards. The store is inside the container and goes with it. The
+        # Docker client is given an empty configuration: no stored credential
+        # is used for the pull.
+        client=(PATH="$PATH" DOCKER_CONFIG="$work/docker")
+        if [ -n "${DOCKER_HOST:-}" ]; then client+=(DOCKER_HOST="$DOCKER_HOST"); fi
+        env -i "${client[@]}" \
+          docker run --rm \
+          --pull missing \
+          --network bridge \
+          --user "$(id -u):$(id -g)" \
+          --cap-drop ALL \
+          --security-opt no-new-privileges \
+          --env CI=true \
+          --env HOME=/tmp/home \
+          --workdir "$root" \
+          --volume "$root:$root" \
+          ${covered[@]+"${covered[@]}"} \
+          --volume "$ACTION_PATH/npmrc:$root/.npmrc:ro" \
+          --volume "$ACTION_PATH:/opt/agent-toolchain:ro" \
+          --volume "$tools/pnpm:/opt/pnpm:ro" \
+          --entrypoint sh \
+          "$IMAGE" \
+          /opt/agent-toolchain/entry.sh "$root"
+
+        # 4. THE COMPARISON. Nothing after the container writes to the
+        # workspace; this reads names, kinds and link targets in it.
+        env -i PATH="$PATH" node "$checker" after "$root" "$work/before.json" "$temp" "$work" "${HOME:-}"
+        tools=""

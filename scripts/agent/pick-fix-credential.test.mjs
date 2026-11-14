@@ -1,3 +1,4 @@
+import "./fixtures/use-fixture-config.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
@@ -184,7 +185,14 @@ test("the fix job picks a credential BEFORE recording the round, and gates on it
   // BOTH gates are `!= 'false'`, never `== 'true'`: an unset output has to proceed,
   // or a skipped/older picker would silently stop every fixer in the pipeline.
   const gate = /if: steps\.guard\.outputs\.proceed == 'true' && steps\.cred\.outputs\.available != 'false'/g;
-  assert.equal((wf.match(gate) ?? []).length, 2, "the dispatch record and the fixer must both carry the gate");
+  // At least those two: the setup steps between the probe and its page may carry
+  // it too, so a drained pool mints no token and checks out no branch.
+  assert.ok((wf.match(gate) ?? []).length >= 2, "the dispatch record and the fixer must both carry the gate");
+  for (const name of ["Record the fix-round dispatch", "Address panel findings"]) {
+    const at = wf.indexOf(`name: ${name}`);
+    const body = wf.slice(at, wf.indexOf("\n      - ", at));
+    assert.match(body, new RegExp(gate.source), `${name} must carry the gate`);
+  }
   assert.doesNotMatch(wf, /steps\.cred\.outputs\.available == 'true'/, "a positive gate would fail closed");
 
   // The fixer is handed the picked slot, resolved through `secrets` so the token
@@ -253,10 +261,11 @@ test("no fix-job step reads from a path the fix job never creates", () => {
   // The staging step is what makes the path real.
   assert.match(fixJob, /cp -R \.\/scripts\/agent "\$\{\{ runner\.temp \}\}\/agent-tools"/);
 
-  // And nothing in the job may reference a `.trusted` path — it creates none.
+  // And nothing in the job may reference a `.trusted` path — it creates none,
+  // bar `.trusted-toolchain`, which it checks out itself for the one action.
   const offenders = fixJob
     .split("\n")
-    .filter((l) => l.includes(".trusted") && !/^\s*#/.test(l));
+    .filter((l) => /\.trusted(?!-toolchain\b)/.test(l) && !/^\s*#/.test(l));
   assert.deepEqual(offenders, [], `fix-job steps reference .trusted, which this job never creates:\n${offenders.join("\n")}`);
 });
 

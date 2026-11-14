@@ -19,6 +19,7 @@
 // test can assert the mutation as well as the code: "0 means promoted" is false
 // if nothing called `gh pr ready`.
 
+import "./fixtures/use-fixture-config.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -147,7 +148,7 @@ function okConfig(over = {}) {
       started_at: AT,
       app: { slug: "github-actions" },
     })),
-    files: [{ filename: "packages/sdk/src/document/crdt/tree.ts" }],
+    files: [{ filename: "pkg/document/crdt/tree.go" }],
     fail: [],
     ...over,
   };
@@ -358,35 +359,32 @@ test("gate 1b: a branch that edits the CI definition is not promoted by its own 
   assert.ok(!promoted(unreadable.calls));
 
   // ...and an ordinary code-only PR is unaffected.
-  const ordinary = run(["7", "--promote"], okConfig({ files: [{ filename: "packages/sdk/src/client/client.ts" }] }));
+  const ordinary = run(["7", "--promote"], okConfig({ files: [{ filename: "server/rpc/yorkie_server.go" }] }));
   assert.equal(ordinary.code, 0);
   assert.ok(promoted(ordinary.calls));
 });
 
 test("gate 1b covers the WHOLE CI-defining surface, not just .github/**", () => {
-  // `ci.yml` contains almost no test logic: every step is a pnpm script, which
-  // resolves through the MERGE REF's `package.json` files into whatever eslint,
-  // tsc and vitest configuration the branch ships, installed from the branch's
-  // lockfile, and it grades the integration suites against a compose stack the
-  // branch also owns. A gate that refused only `.github/workflows|actions/**`
-  // let a branch gut CI through any of those and still auto-promote — while the
-  // hand-off comment told the human reviewer the run had executed main's CI
-  // definition. Every path here is one the agent App CAN push.
+  // A CI workflow contains almost no test logic: its steps resolve through the
+  // MERGE REF's build files into whatever lint configuration the branch ships,
+  // and it grades the integration suite against a stack the branch also owns.
+  // A gate that refused only `.github/workflows|actions/**` let a branch gut CI
+  // through any of those and still auto-promote — while the hand-off comment
+  // told the human reviewer the run had executed main's CI definition. Every
+  // path here is one the agent App CAN push.
+  //
+  // The first four are the fixture configuration's `ci.definingPaths`; the rest
+  // are the entries every repository shares. A repository's own list is graded
+  // by its `repo.test.mjs`.
   for (const filename of [
-    "package.json",
-    "packages/sdk/package.json",
-    "pnpm-lock.yaml",
-    "eslint.config.mjs",
-    "packages/sdk/vitest.config.ts",
-    "packages/sdk/tsconfig.json",
-    "codecov.yml",
-    "docker/docker-compose-ci.yml",
-    "scripts/verify-doc-links.mjs",
-    // And the module both verify scripts import their entry-point predicate
-    // from: editing it alone makes both gates exit 0 having checked nothing, so
-    // gate 1b has to refuse it too.
-    "scripts/direct-run.mjs",
+    "build.config",
+    "deps.lock",
+    "tools/ci/lanes/run.sh",
+    "tools/lint.sh",
     ".github/CODEOWNERS",
+    "scripts/setup.sh",
+    "scripts/hooks/install.mjs",
+    ".githooks/pre-commit",
   ]) {
     const { code, stdout, stderr, calls } = run(["7", "--promote"], okConfig({ files: [{ filename }] }));
     assert.equal(code, 1, `${filename} decides what CI does, so its green run is not evidence about main's CI`);

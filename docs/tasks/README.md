@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-10
+updated: 2026-11-14
 ---
 
 # Tasks Index
@@ -20,6 +20,7 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Move the agent harness onto the shared copy and a repository config (2026-11-14) | [20261114-harness-config-todo.md](./active/20261114-harness-config-todo.md) | [20261114-harness-config-lessons.md](./active/20261114-harness-config-lessons.md) |
 | Port the `@claude` agent pipeline from yorkie (2026-09-25) | [20260925-agent-pipeline-port-todo.md](./active/20260925-agent-pipeline-port-todo.md) | [20260925-agent-pipeline-port-lessons.md](./active/20260925-agent-pipeline-port-lessons.md) |
 
 ## Archive

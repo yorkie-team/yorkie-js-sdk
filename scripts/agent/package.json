@@ -3,17 +3,19 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Agent command-surface scripts (review panel orchestrator). Vendored from yorkie-team/yorkie; not part of the pnpm workspace.",
+  "description": "Agent command-surface scripts (review panel orchestrator). Not built or imported by the product's own build.",
   "scripts": {
-    "test": "node --test-timeout=60000 --test '**/*.test.mjs'"
+    "test": "AGENT_HARNESS_CONFIG_DIR=\"$PWD/fixtures/harness-config\" node --test-timeout=60000 --test '**/*.test.mjs'",
+    "test:repo": "node --test-timeout=60000 --test ../../.github/agent-harness/repo.test.mjs",
+    "check:upstream": "node manifest.mjs upstream"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.217",
     "zod": "4.6.7"
   },
-  "comment": "This project has its own npm lockfile and sits outside the pnpm workspace; nothing in the SDK build reaches it. See README.md in this directory. Transitive security pins are duplicated here on purpose.",
+  "comment": "This project has its own npm lockfile and sits outside any workspace; nothing in the product's build reaches it. Repository-specific values live in .github/agent-harness, read through config.mjs. Transitive security pins are duplicated here on purpose.",
   "overrides": {
     "fast-uri": "^3.1.9",
-    "qs": "^6.16.0"
+    "qs": "^6.16.1"
   }
 }

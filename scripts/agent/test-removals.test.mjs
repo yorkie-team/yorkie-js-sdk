@@ -1,3 +1,4 @@
+import "./fixtures/use-fixture-config.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -70,7 +71,7 @@ test("records round-trip, and only github-actions[bot] is believed", () => {
   assert.deepEqual(collectTestRemovals([bot(body)]), [{ head: "6915bc6a7", after: "e6900da64", removals: rec.removals.map((r) => ({ ...r, suitesOff: 0 })) }]);
   // The fixer's own identity (it can comment through the fix-report path) and a
   // human are not the pipeline: refused.
-  assert.deepEqual(collectTestRemovals([bot(body, "yorkie-team-agent[bot]")]), []);
+  assert.deepEqual(collectTestRemovals([bot(body, "fixture-agent[bot]")]), []);
   assert.deepEqual(collectTestRemovals([{ ...bot(body), user: { login: "github-actions[bot]", type: "User" } }]), []);
   assert.deepEqual(collectTestRemovals([bot("<!-- agent-fix-tests {nope} -->")]), []);
   // A file name cannot close the record.
@@ -177,4 +178,258 @@ test("roundCommits: only the PR's own non-merge commits in the round", () => {
   assert.deepEqual(roundCommits(compare, pr).map((c) => c.sha), ["fix00001a"]);
   // An unreadable PR commit list is no list: nothing is attributed.
   assert.deepEqual(roundCommits(compare, null), []);
+});
+
+// GO. Where a repository's product tests — the ones the fixer edits — are Go. The JS rules
+// above stay for the harness's own `scripts/agent/*.test.mjs`.
+
+test("isTestFile: the Go test layouts", () => {
+  for (const f of [
+    "pkg/document/crdt/tree_test.go",
+    "test/integration/tree_test.go",
+    "test/helper/helper.go",
+    "server/backend/database/mongo/client_test.go",
+  ]) assert.equal(isTestFile(f), true, f);
+  for (const f of ["pkg/document/crdt/tree.go", "server/rpc/testing.go", "docs/design/tree.md"]) {
+    assert.equal(isTestFile(f), false, f);
+  }
+});
+
+test("countCases (Go): top-level Test/Fuzz functions and t.Run subtests are cases; TestMain and helpers are not", () => {
+  const patch = [
+    "@@ -10,30 +10,12 @@",
+    "-func TestTreeSplitRedo(t *testing.T) {",
+    "-func FuzzTreeFromBytes(f *testing.F) {",
+    "-\tt.Run(\"remote redo re-points the history\", func(t *testing.T) {",
+    "-\t\tt.Run(tc.name, func(t *testing.T) {",
+    "+\tt.Run(\"local redo\", func(t *testing.T) {",
+    "-func TestMain(m *testing.M) {",
+    "-func Testable(t *testing.T) {",
+    "-func testHelper(t *testing.T) {",
+    "-func BenchmarkTree(b *testing.B) {",
+    "-\tb.Run(\"split\", func(b *testing.B) {",
+    "-// func TestCommented(t *testing.T) {",
+  ].join("\n");
+  const go = { file: "pkg/document/crdt/tree_test.go", status: "modified" };
+  assert.deepEqual(countCases(patch, go), { removed: 4, added: 1, suitesOff: 0 });
+  // The same lines in a JS file mean nothing to the JS rules.
+  assert.deepEqual(countCases(patch, { file: "scripts/agent/x.test.mjs" }), { removed: 0, added: 0, suitesOff: 0 });
+  assert.deepEqual(countCases("", go), { removed: 0, added: 0, suitesOff: 0 });
+});
+
+test("countCases (Go): t.Skip/Skipf/SkipNow switch a case off, counted apart and netted only against removed skips", () => {
+  const go = { file: "test/integration/history_test.go", status: "modified" };
+  const skipped = [
+    " func TestRemoteRedo(t *testing.T) {",
+    "+\tt.Skip(\"still reproduces: remote path does not re-point\")",
+    "+\t\tt.Skipf(\"flaky on %s\", runtime.GOOS)",
+    "+\tt.SkipNow()",
+    "+\t// t.Skip(\"a comment is not a call\")",
+    "+\tb.Skip(\"any receiver counts, a benchmark's too\")",
+    "+func TestAddedBeside(t *testing.T) {",
+  ].join("\n");
+  // Four skips are NOT netted against the added case.
+  assert.deepEqual(countCases(skipped, go), { removed: 0, added: 1, suitesOff: 4 });
+  // Removing a skip re-enables; rewording one is not a new disablement.
+  assert.deepEqual(countCases("-\tt.Skip(\"old reason\")\n+\tt.Skip(\"new reason\")", go), { removed: 0, added: 0, suitesOff: 0 });
+  assert.deepEqual(countCases("-\tt.Skip(\"todo\")", go), { removed: 0, added: 0, suitesOff: 0 });
+});
+
+test("countCases (Go): a changed build constraint in an existing test file switches it off; a new file's does not", () => {
+  const retagged = "-//go:build integration\n+//go:build ignore";
+  assert.deepEqual(countCases(retagged, { file: "test/integration/tree_test.go", status: "modified" }), { removed: 0, added: 0, suitesOff: 1 });
+  // Reformatting the same expression is not a change.
+  assert.deepEqual(countCases("-//go:build integration\n+//go:build integration", { file: "test/integration/a_test.go", status: "modified" }), { removed: 0, added: 0, suitesOff: 0 });
+  // A brand-new tagged test file was never running: no switch-off, one case added.
+  assert.deepEqual(
+    countCases("+//go:build integration\n+\n+func TestNew(t *testing.T) {", { file: "test/integration/new_test.go", status: "added" }),
+    { removed: 0, added: 1, suitesOff: 0 },
+  );
+});
+
+test("testRemovals (Go): deleted, case-losing, skipped and renamed-away Go tests are reported; source is not", () => {
+  const files = [
+    { filename: "test/integration/remote_repoint_test.go", status: "removed",
+      patch: "-func TestRemoteRepoint(t *testing.T) {\n-\tt.Run(\"gc\", func(t *testing.T) {" },
+    { filename: "pkg/document/crdt/tree_test.go", status: "modified",
+      patch: " func TestTreeSplit(t *testing.T) {\n+\tt.Skip(\"still reproduces: #123\")" },
+    { filename: "pkg/document/crdt/rga_test.go", status: "modified",
+      patch: "-func TestRGAInsert(t *testing.T) {\n+func testRGAInsert(t *testing.T) {" },
+    { filename: "pkg/document/crdt/off.go.disabled", previous_filename: "pkg/document/crdt/off_test.go", status: "renamed", patch: "" },
+    // A Go test file that moved a case around, or gained one, is not a removal.
+    { filename: "pkg/document/crdt/text_test.go", status: "modified",
+      patch: "-\tt.Run(\"a\", func(t *testing.T) {\n+\tt.Run(\"a renamed\", func(t *testing.T) {" },
+    // Source is never a test removal, whatever it looks like.
+    { filename: "pkg/document/crdt/tree.go", status: "modified", patch: "-func TestLooksLikeACase(t *testing.T) {\n+\tt.Skip(\"x\")" },
+    // Deleting a helper with no cases is not removing tests.
+    { filename: "test/helper/helper.go", status: "removed", patch: "-func TestDBName() string {" },
+  ];
+  assert.deepEqual(testRemovals(files), [
+    { file: "test/integration/remote_repoint_test.go", deleted: true, removed: 2, added: 0, suitesOff: 0 },
+    { file: "pkg/document/crdt/tree_test.go", deleted: false, removed: 0, added: 0, suitesOff: 1 },
+    { file: "pkg/document/crdt/rga_test.go", deleted: false, removed: 1, added: 0, suitesOff: 0 },
+    { file: "pkg/document/crdt/off_test.go", deleted: true, removed: 0, added: 0, suitesOff: 0 },
+  ]);
+});
+
+test("aggregateCommits (Go): a reproducer committed then deleted in the round is seen, and the line names a skip", () => {
+  const commits = [
+    { sha: "c1", parents: [{}], files: [{ filename: "test/integration/repro_test.go", status: "added",
+      patch: "+//go:build integration\n+func TestRepro(t *testing.T) {" }] },
+    { sha: "c2", parents: [{}], files: [{ filename: "test/integration/repro_test.go", status: "removed",
+      patch: "-//go:build integration\n-func TestRepro(t *testing.T) {" }] },
+    { sha: "c3", parents: [{}], files: [{ filename: "pkg/a_test.go", status: "modified", patch: "+\tt.SkipNow()" }] },
+  ];
+  const got = aggregateCommits(commits);
+  assert.deepEqual(got, [
+    { file: "test/integration/repro_test.go", deleted: true, removed: 1, added: 1, suitesOff: 0 },
+    { file: "pkg/a_test.go", deleted: false, removed: 0, added: 0, suitesOff: 1 },
+  ]);
+  const body = renderTestRemovals({ head: "h", after: "a", removals: got });
+  assert.match(body, /deleted `test\/integration\/repro_test\.go` \(1 case\(s\)\)/);
+  assert.match(body, /`pkg\/a_test\.go`: 1 test\(s\) or suite\(s\) switched off/);
+});
+
+// A repository may keep suite bodies in shared files that are not `_test.go`:
+// `func RunXxxTest(` with the signature on the following lines, called from
+// thin `_test.go` wrappers. Which directories hold them is configuration
+// (`tests.go.sharedSuiteDirs` — `sharedsuites` in the fixture). A skip or a
+// deleted subtest there is a test switched off.
+test("isTestFile (Go): shared suite bodies under a configured directory are test files", () => {
+  for (const f of ["server/backend/database/sharedsuites/suites.go", "server/rpc/sharedsuites/suites.go", "sharedsuites/a/b.go"]) {
+    assert.equal(isTestFile(f), true, f);
+  }
+  assert.equal(isTestFile("server/backend/database/sharedsuite.go"), false);
+  assert.equal(isTestFile("server/backend/database/xsharedsuites/suites.go"), false, "the directory name is matched whole");
+  assert.equal(isTestFile("server/backend/database/sharedsuites/notes.txt"), false, "only Go files");
+  // A directory the configuration does not name is not a shared suite.
+  assert.equal(isTestFile("server/rpc/testcases/testcases.go"), false);
+});
+
+test("testRemovals (Go): a skip or a deleted subtest in a shared suite is reported, and so is a deleted Run* body", () => {
+  const file = "server/backend/database/sharedsuites/suites.go";
+  assert.deepEqual(testRemovals([{ filename: file, status: "modified",
+    patch: " func RunFindDocInfoTest(\n \tt *testing.T,\n+\tt.Skip(\"still reproduces: #42\")" }]),
+  [{ file, deleted: false, removed: 0, added: 0, suitesOff: 1 }]);
+  assert.deepEqual(testRemovals([{ filename: file, status: "modified",
+    patch: "-\tt.Run(\"find by key\", func(t *testing.T) {\n-\t\trequire.NoError(t, err)" }]),
+  [{ file, deleted: false, removed: 1, added: 0, suitesOff: 0 }]);
+  // A whole shared body deleted: `func RunXxx(` is the case line there.
+  assert.deepEqual(testRemovals([{ filename: "server/rpc/sharedsuites/suites.go", status: "modified",
+    patch: "-func RunAttachAndDetachDocumentTest(\n-\tt *testing.T," }]),
+  [{ file: "server/rpc/sharedsuites/suites.go", deleted: false, removed: 1, added: 0, suitesOff: 0 }]);
+});
+
+// D2 tells the Go fixer to WRITE skips. A skip added in one commit and taken
+// out in a later commit of the same round is no skip at all.
+test("aggregateCommits (Go): skips and constraints net across the round's commits before clamping", () => {
+  const f = "test/integration/tree_test.go";
+  const c = (sha, patch) => ({ sha, parents: [{}], files: [{ filename: f, status: "modified", patch }] });
+  assert.deepEqual(aggregateCommits([c("c1", "+\tt.Skip(\"wip\")"), c("c2", "-\tt.Skip(\"wip\")")]), []);
+  // Constraint changed and changed back: no switch-off.
+  assert.deepEqual(aggregateCommits([
+    c("c1", "-//go:build integration\n+//go:build ignore"),
+    c("c2", "-//go:build ignore\n+//go:build integration"),
+  ]), []);
+  // Still reported when the round ends with it switched off.
+  assert.deepEqual(aggregateCommits([c("c1", "+\tt.Skip(\"a\")\n+\tt.Skip(\"b\")"), c("c2", "-\tt.Skip(\"a\")")]),
+    [{ file: f, deleted: false, removed: 0, added: 0, suitesOff: 1 }]);
+  // The case property is unchanged: committed then deleted inside the round is flagged.
+  assert.deepEqual(aggregateCommits([
+    { sha: "c1", parents: [{}], files: [{ filename: "pkg/x_test.go", status: "added", patch: "+func TestRepro(t *testing.T) {" }] },
+    { sha: "c2", parents: [{}], files: [{ filename: "pkg/x_test.go", status: "removed", patch: "-func TestRepro(t *testing.T) {" }] },
+  ]), [{ file: "pkg/x_test.go", deleted: true, removed: 1, added: 1, suitesOff: 0 }]);
+});
+
+test("aggregateCommits (JS): a suite switched off and back on inside the round nets out too", () => {
+  const f = "scripts/agent/x.test.mjs";
+  const c = (sha, patch) => ({ sha, parents: [{}], files: [{ filename: f, status: "modified", patch }] });
+  assert.deepEqual(aggregateCommits([c("c1", "-describe('a', () => {\n+describe.skip('a', () => {"), c("c2", "-describe.skip('a', () => {\n+describe('a', () => {")]), []);
+});
+
+test("testRemovals (Go): renames that stay *_test.go but leave the runner's reach are deletions", () => {
+  const got = testRemovals([
+    { filename: "pkg/crdt/testdata/tree_test.go", previous_filename: "pkg/crdt/tree_test.go", status: "renamed", patch: "" },
+    { filename: "pkg/crdt/_tree_test.go", previous_filename: "pkg/crdt/rga_test.go", status: "renamed", patch: "" },
+    { filename: "pkg/crdt/.text_test.go", previous_filename: "pkg/crdt/text_test.go", status: "renamed", patch: "" },
+    { filename: "pkg/crdt/gc_windows_test.go", previous_filename: "pkg/crdt/gc_test.go", status: "renamed", patch: "" },
+    { filename: "pkg/crdt/rht_386_test.go", previous_filename: "pkg/crdt/rht_test.go", status: "renamed", patch: "" },
+    // CI's platform is configuration (`tests.go.ciPlatform` — linux/arm64 in
+    // the fixture), so another architecture is out of reach like another OS.
+    { filename: "pkg/crdt/heap_amd64_test.go", previous_filename: "pkg/crdt/heap_test.go", status: "renamed", patch: "" },
+    // Still in reach on CI: a move, not a removal.
+    { filename: "pkg/crdt/splay_linux_test.go", previous_filename: "pkg/crdt/splay_test.go", status: "renamed" },
+    { filename: "pkg/crdt/llrb_arm64_test.go", previous_filename: "pkg/crdt/llrb_test.go", status: "renamed" },
+    { filename: "pkg/crdt/trie_linux_arm64_test.go", previous_filename: "pkg/crdt/trie_test.go", status: "renamed" },
+  ]);
+  assert.deepEqual(got.map((r) => [r.file, r.deleted]), [
+    ["pkg/crdt/tree_test.go", true],
+    ["pkg/crdt/rga_test.go", true],
+    ["pkg/crdt/text_test.go", true],
+    ["pkg/crdt/gc_test.go", true],
+    ["pkg/crdt/rht_test.go", true],
+    ["pkg/crdt/heap_test.go", true],
+  ]);
+});
+
+test("countCases (Go): a NEW file that starts ignored is switched off; an ordinary new constraint is not", () => {
+  const added = { file: "test/integration/repro_test.go", status: "added" };
+  assert.equal(countCases("+//go:build ignore\n+\n+func TestRepro(t *testing.T) {", added).suitesOff, 1);
+  assert.equal(countCases("+// +build ignore\n+\n+func TestRepro(t *testing.T) {", added).suitesOff, 1);
+  assert.equal(countCases("+//go:build integration && !ignore_never\n+func TestRepro(t *testing.T) {", added).suitesOff, 0);
+});
+
+test("countCases (Go): any receiver's Skip/Skipf/SkipNow counts", () => {
+  const go = { file: "test/bench/channel_bench_test.go", status: "modified" };
+  assert.equal(countCases("+\t\tb.Skip(\"no channels\")\n+\ttb.Skipf(\"x %d\", 1)\n+\tsuite.T().SkipNow()", go).suitesOff, 3);
+});
+
+// --- the fixer's own head (/code-review) ----------------------------------------
+//
+// The report job read AFTER from the live branch ref, so a commit a human pushed
+// once the fixer was done was blamed on the round. The round ends at the last
+// push the App made in a chain from `before`, by GitHub's record of WHO PUSHED,
+// which the fixer cannot choose (unlike a commit's author or committer).
+
+const sha = (c) => c.repeat(40);
+const push = (before, after, login, timestamp, type = "push") => ({
+  ref: "refs/heads/agent/x", before: sha(before), after: sha(after), activity_type: type,
+  actor: { login, type: login.endsWith("[bot]") ? "Bot" : "User" }, timestamp,
+});
+const APP = "agent-app[bot]";
+const SINCE = "2026-10-01T10:00:00Z";
+const opts = { before: sha("a"), pusher: APP, since: SINCE, ref: "refs/heads/agent/x" };
+
+test("fixerHead: stops at the last push the App made, before a human's", async () => {
+  const { fixerHead } = await import("./test-removals.mjs");
+  // Newest first, as the API lists them.
+  const acts = [
+    push("c", "d", "maintainer", "2026-10-01T10:30:00Z"),
+    push("b", "c", APP, "2026-10-01T10:20:00Z"),
+    push("a", "b", APP, "2026-10-01T10:10:00Z"),
+  ];
+  assert.equal(fixerHead(acts, opts), sha("c"));
+  // A force-push by the App is still the App's.
+  assert.equal(fixerHead([push("a", "e", APP, "2026-10-01T10:10:00Z", "force_push")], opts), sha("e"));
+});
+
+test("fixerHead: unknown (empty) whenever the chain cannot be proven to start at `before`", async () => {
+  const { fixerHead } = await import("./test-removals.mjs");
+  // A human pushed first: no push of the App's follows `before`.
+  assert.equal(fixerHead([push("b", "c", APP, "2026-10-01T10:20:00Z"), push("a", "b", "maintainer", "2026-10-01T10:10:00Z")], opts), "");
+  // An App push from before the round started is not this round's, even when
+  // the branch was reset back to the same `before`.
+  assert.equal(fixerHead([push("a", "b", APP, "2026-10-01T09:00:00Z")], opts), "");
+  // Another branch, no pushes, junk, or no `since` to bound the round by.
+  assert.equal(fixerHead([{ ...push("a", "b", APP, "2026-10-01T10:10:00Z"), ref: "refs/heads/other" }], opts), "");
+  assert.equal(fixerHead([], opts), "");
+  assert.equal(fixerHead(null, opts), "");
+  assert.equal(fixerHead([null, 7, {}], opts), "");
+  assert.equal(fixerHead([push("a", "b", APP, "2026-10-01T10:10:00Z")], { ...opts, since: "" }), "");
+  assert.equal(fixerHead([push("a", "b", APP, "2026-10-01T10:10:00Z")], { ...opts, pusher: "" }), "");
+});
+
+test("fixerHead: a branch name or a full ref both match", async () => {
+  const { fixerHead } = await import("./test-removals.mjs");
+  assert.equal(fixerHead([push("a", "b", APP, "2026-10-01T10:10:00Z")], { ...opts, ref: "agent/x" }), sha("b"));
 });
