@@ -2861,6 +2861,362 @@ test('a symbolic link is judged by its text, every one of them, and nothing may 
   assert.deepEqual(links, []);
 });
 
+test('a link whose target passes through another link is judged by where each step leads', () => {
+  // A `..` READ AS TEXT steps back from the name before it; followed, it
+  // steps back from wherever that name led. When that name is itself a link
+  // the two readings are different places, so neither the text of a target
+  // nor a resolution that settles `..` as text first says where it leads.
+  // Each check refuses such a link on its own: by the kernel's resolution,
+  // and by walking the target one component at a time.
+  const base = realpathSync(
+    mkdtempSync(path.join(os.tmpdir(), 'agent-through-')),
+  );
+  try {
+    const temp = path.join(base, '_temp');
+    mkdirSync(path.join(temp, 'agent-tools'), { recursive: true });
+    let n = 0;
+    const tree = (setup) => {
+      const dir = path.join(base, `t${++n}`, 'repo');
+      mkdirSync(path.join(dir, 'packages', 'sdk'), { recursive: true });
+      mkdirSync(path.join(dir, '.git'));
+      mkdirSync(path.join(dir, '.trusted-toolchain'));
+      setup(dir);
+      return dir;
+    };
+    const after = (dir, runnerTemp = temp) =>
+      installInputs.checkLinks(dir, { runnerTemp });
+    const before = (dir) => installInputs.checkTree(dir);
+    const refusal = (message) => (e) =>
+      e instanceof installInputs.Refusal && message.test(e.message);
+    // `a/b/dl` leads to the root, and `a/_temp/agent-tools` is where the
+    // text `a/b/dl/../../_temp/agent-tools` points when read without it.
+    const through = (d, first = '../..') => {
+      mkdirSync(path.join(d, 'a', 'b'), { recursive: true });
+      mkdirSync(path.join(d, 'a', '_temp', 'agent-tools'), { recursive: true });
+      symlinkSync(first, path.join(d, 'a', 'b', 'dl'));
+    };
+    const BY_RESOLUTION = [
+      /x is a symbolic link that resolves outside the workspace/,
+      /x is a symbolic link out of the workspace's own files after the install$/,
+    ];
+    const ANY = [/x is a symbolic link/, /x is a symbolic link/];
+    const BY_TEXT = [
+      /x is a symbolic link that leads out of the workspace/,
+      /x is a symbolic link .*\(it leads out of the workspace\)/,
+    ];
+
+    // REFUSED, by both checks, each on its own.
+    for (const [name, setup, [beforeMessage, afterMessage]] of [
+      [
+        'through a link, then up',
+        (d) => {
+          through(d);
+          symlinkSync('a/b/dl/../../_temp/agent-tools', path.join(d, 'x'));
+        },
+        BY_RESOLUTION,
+      ],
+      [
+        'through a link written as an absolute path inside',
+        (d) => {
+          through(d, d);
+          symlinkSync('a/b/dl/../../_temp/agent-tools', path.join(d, 'x'));
+        },
+        BY_RESOLUTION,
+      ],
+      [
+        'through three links in a row',
+        (d) => {
+          through(d, 'l2');
+          symlinkSync('l3', path.join(d, 'a', 'b', 'l2'));
+          symlinkSync('../..', path.join(d, 'a', 'b', 'l3'));
+          symlinkSync('a/b/dl/../../_temp/agent-tools', path.join(d, 'x'));
+        },
+        BY_RESOLUTION,
+      ],
+      ...[
+        'a/b/dl/./../../_temp/agent-tools',
+        'a/b/dl//../../_temp/agent-tools',
+        'a/b/dl/.//.././../_temp/agent-tools/',
+        './a//b/dl/../../_temp/agent-tools/.',
+      ].map((target) => [
+        `spelled ${target}`,
+        (d) => {
+          through(d);
+          symlinkSync(target, path.join(d, 'x'));
+        },
+        BY_RESOLUTION,
+      ]),
+      [
+        // The same name in another case: the link itself where names fold,
+        // nothing at all where they do not. Refused either way.
+        'through a name in another case',
+        (d) => {
+          through(d);
+          symlinkSync('a/b/DL/../../_temp/agent-tools', path.join(d, 'x'));
+        },
+        ANY,
+      ],
+      [
+        'through a link from a directory below the root',
+        (d) => {
+          through(d);
+          symlinkSync(
+            '../a/b/dl/../../_temp/agent-tools',
+            path.join(d, 'packages', 'x'),
+          );
+        },
+        [/packages\/x is a symbolic link/, /packages\/x is a symbolic link/],
+      ],
+      [
+        // Inside once followed, outside as written: the text decides.
+        'out as written, though it resolves inside',
+        (d) => {
+          mkdirSync(path.join(d, 'a', 'b'), { recursive: true });
+          symlinkSync('a/b', path.join(d, 'deep'));
+          symlinkSync('deep/../../packages', path.join(d, 'x'));
+        },
+        BY_TEXT,
+      ],
+      [
+        // Inside as written and once followed, but a step on the way is not.
+        'out and back in',
+        (d) => symlinkSync('../repo/packages', path.join(d, 'x')),
+        BY_TEXT,
+      ],
+      [
+        'through something that is not a directory',
+        (d) => {
+          writeFileSync(path.join(d, 'f'), '');
+          symlinkSync('f/../packages', path.join(d, 'x'));
+        },
+        ANY,
+      ],
+    ]) {
+      assert.throws(
+        () => before(tree(setup)),
+        refusal(beforeMessage),
+        `before: ${name}`,
+      );
+      assert.throws(
+        () => after(tree(setup)),
+        refusal(afterMessage),
+        `after: ${name}`,
+      );
+    }
+
+    // ALLOWED: a link through a link that stays inside both as written and
+    // once followed, and an ordinary one.
+    for (const [name, setup] of [
+      [
+        'an ordinary link',
+        (d) => symlinkSync('packages/sdk', path.join(d, 'x')),
+      ],
+      [
+        'through a link, down',
+        (d) => {
+          symlinkSync('packages', path.join(d, 'p'));
+          symlinkSync('p/sdk', path.join(d, 'x'));
+          symlinkSync('../p/sdk/.', path.join(d, 'packages', 'y'));
+        },
+      ],
+      [
+        'through a link written as an absolute path inside',
+        (d) => {
+          symlinkSync(path.join(d, 'packages'), path.join(d, 'p'));
+          symlinkSync('p/sdk', path.join(d, 'x'));
+        },
+      ],
+      [
+        'through a link, then up, still inside',
+        (d) => {
+          mkdirSync(path.join(d, 'a', 'b'), { recursive: true });
+          mkdirSync(path.join(d, 'b'));
+          symlinkSync('a/b', path.join(d, 'deep'));
+          symlinkSync('deep/../b', path.join(d, 'x'));
+        },
+      ],
+      [
+        'a link to a link',
+        (d) => {
+          symlinkSync('packages/sdk', path.join(d, 'one'));
+          symlinkSync('one', path.join(d, 'x'));
+        },
+      ],
+    ]) {
+      assert.doesNotThrow(() => before(tree(setup)), `before: ${name}`);
+      assert.doesNotThrow(() => after(tree(setup)), `after: ${name}`);
+    }
+
+    // THE WALK, ON ITS OWN. The text of the target alone passes; walked a
+    // component at a time, it does not.
+    const twin = tree((d) => through(d));
+    const target = 'a/b/dl/../../_temp/agent-tools';
+    const at = path.join(twin, 'x');
+    assert.equal(installInputs.linkLeaves(twin, at, target, temp), '');
+    assert.equal(
+      installInputs.linkStrays(twin, at, target, temp),
+      'out of the workspace',
+    );
+    assert.equal(
+      installInputs.linkStrays(twin, at, `${twin}/a/b/dl/../../x`, temp),
+      'out of the workspace',
+    );
+    // A component that is not there is a refusal before the install. After
+    // it, what is left is read as names below it, and may not climb.
+    assert.equal(installInputs.linkStrays(twin, at, 'gone/in'), 'nowhere');
+    assert.equal(installInputs.linkStrays(twin, at, 'gone/in', temp, true), '');
+    assert.equal(
+      installInputs.linkStrays(twin, at, 'gone/../packages', temp, true),
+      'through a path that does not exist',
+    );
+    // A reserved name is one in any case.
+    assert.equal(
+      installInputs.linkStrays(twin, at, '.GIT/config', temp),
+      'into .git or a trusted checkout',
+    );
+    // A link that leads back to itself ends the walk.
+    symlinkSync('loop', path.join(twin, 'loop'));
+    assert.equal(
+      installInputs.linkStrays(twin, at, 'loop/in', temp, true),
+      'through too many links',
+    );
+    rmSync(path.join(twin, 'loop'));
+    // A component that cannot be examined is a refusal, before and after.
+    mkdirSync(path.join(twin, 'closed', 'in'), { recursive: true });
+    chmodSync(path.join(twin, 'closed'), 0o000);
+    try {
+      for (const lenient of [false, true]) {
+        assert.equal(
+          installInputs.linkStrays(twin, at, 'closed/in', temp, lenient),
+          'through a path that cannot be examined',
+        );
+      }
+    } finally {
+      chmodSync(path.join(twin, 'closed'), 0o755);
+    }
+
+    // MADE DURING THE INSTALL. A directory the target passes through is a
+    // directory when the tree is checked and a link afterwards: the walk
+    // after the install reads the tree as it is then.
+    const swapped = tree((d) => {
+      mkdirSync(path.join(d, 'a', 'b', 'dl'), { recursive: true });
+      mkdirSync(path.join(d, 'a', '_temp', 'agent-tools'), { recursive: true });
+      symlinkSync('a/b/dl/../../_temp/agent-tools', path.join(d, 'x'));
+    });
+    before(swapped);
+    after(swapped);
+    rmSync(path.join(swapped, 'a', 'b', 'dl'), { recursive: true });
+    symlinkSync('../..', path.join(swapped, 'a', 'b', 'dl'));
+    assert.throws(() => after(swapped), refusal(BY_RESOLUTION[1]));
+    assert.throws(() => before(swapped), refusal(BY_RESOLUTION[0]));
+
+    // THE PATHS THE CHECKS ARE GIVEN are resolved the same way. `detour`
+    // returns a path to `target` through a link and a `..`, and the other
+    // directory its text names when read without following the link.
+    const detour = (target) => {
+      const s = path.join(base, `s${++n}`);
+      const decoy = path.join(s, path.basename(target));
+      mkdirSync(decoy, { recursive: true });
+      symlinkSync(target, path.join(s, 'hop'));
+      symlinkSync(`hop/../${path.basename(target)}`, path.join(s, 'via'));
+      return { via: path.join(s, 'via'), decoy };
+    };
+    const viaParent = (dir) => {
+      const { via, decoy } = detour(path.dirname(dir));
+      mkdirSync(path.join(decoy, 'repo'));
+      return path.join(via, 'repo');
+    };
+    // The workspace root: the tree that is walked is the one that is there.
+    const leaky = tree((d) => {
+      symlinkSync('..', path.join(d, 'x'));
+      writeFileSync(path.join(d, '.git', 'config'), '[core]\n');
+    });
+    assert.throws(() => before(viaParent(leaky)), refusal(ANY[0]));
+    assert.throws(() => after(viaParent(leaky)), refusal(ANY[0]));
+    const leakyVia = viaParent(leaky);
+    const direct = installInputs.takeSnapshot(leaky, { runnerTemp: temp });
+    assert.deepEqual(
+      installInputs.takeSnapshot(leakyVia, { runnerTemp: temp }),
+      direct,
+    );
+    assert.match(direct.git['.git/config'], /^f /);
+    // The runner's temp directory, and the directory left out of its record.
+    assert.deepEqual(Object.keys(direct.temp), ['agent-tools']);
+    assert.deepEqual(
+      installInputs.takeSnapshot(leaky, { runnerTemp: detour(temp).via }).temp,
+      direct.temp,
+    );
+    assert.deepEqual(
+      installInputs.takeSnapshot(leaky, {
+        runnerTemp: temp,
+        exclude: detour(path.join(temp, 'agent-tools')).via,
+      }).temp,
+      {},
+    );
+    // ...and where the walk after the install takes it to be.
+    const holdsTemp = tree((d) => {
+      mkdirSync(path.join(d, 'tmp', 'tools'), { recursive: true });
+      symlinkSync('tmp/tools', path.join(d, 'x'));
+    });
+    assert.throws(
+      () => after(holdsTemp, detour(path.join(holdsTemp, 'tmp')).via),
+      refusal(/x is a symbolic link .*runner's temp directory/),
+    );
+
+    // WHAT THE INSTALL LEFT is judged the same way.
+    const installed = (lockfile, setup) =>
+      tree((d) => {
+        writeFileSync(path.join(d, 'pnpm-lock.yaml'), lockfile);
+        mkdirSync(path.join(d, 'a', 'b'), { recursive: true });
+        symlinkSync('../..', path.join(d, 'a', 'b', 'dl'));
+        setup(d);
+      });
+    const good = installed(TREE.lockfile, (d) => {
+      mkdirSync(path.join(d, 'node_modules', '.pnpm', 'dep'), {
+        recursive: true,
+      });
+      symlinkSync('.pnpm/dep', path.join(d, 'node_modules', 'dep'));
+      symlinkSync('../packages/sdk', path.join(d, 'node_modules', 'sdk'));
+    });
+    installInputs.checkInstalled(good);
+    installInputs.checkInstalled(viaParent(good));
+    // An entry of `node_modules`, and a project's own directory.
+    const beside = (d, name) => {
+      mkdirSync(path.join(path.dirname(d), 'oo', name), { recursive: true });
+      mkdirSync(path.join(d, 'a', 'b', 'oo', name), { recursive: true });
+    };
+    assert.throws(
+      () =>
+        installInputs.checkInstalled(
+          installed(TREE.lockfile, (d) => {
+            beside(d, 'dep');
+            mkdirSync(path.join(d, 'node_modules'));
+            symlinkSync(
+              '../a/b/dl/../oo/dep',
+              path.join(d, 'node_modules', 'dep'),
+            );
+          }),
+        ),
+      refusal(/node_modules\/dep resolves outside the workspace after/),
+    );
+    assert.throws(
+      () =>
+        installInputs.checkInstalled(
+          installed(
+            TREE.lockfile.replaceAll('packages/sdk', 'pk/proj'),
+            (d) => {
+              beside(d, 'proj');
+              symlinkSync('a/b/dl/../oo', path.join(d, 'pk'));
+            },
+          ),
+        ),
+      refusal(/pk\/proj resolves outside the workspace after the install/),
+    );
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
 test('the install step refuses a tree that could lead it outside the workspace', () => {
   // THE INSTALL STAYS INSIDE THE WORKSPACE, and flags alone do not make it:
   // where a package manager writes also follows from the shape of the tree
