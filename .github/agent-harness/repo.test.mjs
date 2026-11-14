@@ -1163,9 +1163,11 @@ test("the fix guard's counterpart is the server repository, and not this one", (
   // names this repository must not read as one that refers to the server's.
   // The guard matches a REFERENCE to `owner/name`, not a substring; this pins
   // that it tells the two apart for the names in play here.
-  assert.equal(CONFIG.fixGuard.counterpartRepo, 'yorkie-team/yorkie');
+  // One counterpart, written as a list: the key holds every repository that
+  // must apply the same rule, and for this SDK that is the server alone.
+  assert.deepEqual(CONFIG.fixGuard.counterpartRepos, ['yorkie-team/yorkie']);
   const refersToServer = fixGuard.counterpartReference(
-    CONFIG.fixGuard.counterpartRepo,
+    CONFIG.fixGuard.counterpartRepos[0],
   );
   for (const own of [
     'yorkie-js-sdk',
