@@ -40,18 +40,27 @@
 // merge keys, block scalars, multi-line values, duplicate keys). What is not
 // fully understood is refused.
 //
-// Usage (the action runs both, with a scrubbed environment):
-//   node check-install-inputs.mjs before <workspace root>
-//   node check-install-inputs.mjs after  <workspace root>
+// Usage (the action runs all three, with a scrubbed environment):
+//   node check-install-inputs.mjs before   <workspace root>
+//   node check-install-inputs.mjs snapshot <workspace root> <file> [<runner temp> <exclude>]
+//   node check-install-inputs.mjs after    <workspace root> <file> [<runner temp> <exclude>]
+//
+// THIS IS THE SECOND LAYER. The first is that the install runs in a container
+// that can write nowhere but the workspace's own files (see action.yml); a
+// registry package's own manifest, which nothing here can read before it is
+// fetched, is covered by that and not by this.
 //
 // It imports nothing but Node's own modules and reads only inside the root.
 
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   lstatSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
+  writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -515,23 +524,137 @@ export function checkWorkspaceFile(ws) {
 
 const MANIFEST_DEP_FIELDS = [...DEP_FIELDS, 'peerDependencies'];
 
+// EVERY TOP-LEVEL KEY A MANIFEST MAY HAVE. An install reads more of a
+// `package.json` than its dependencies — a name becomes a directory, a `bin`
+// entry becomes a file — so a key is allowed only when it is on this list,
+// and the ones an install acts on are checked below. The list is the keys
+// this repository's manifests use, plus a few that describe a package and
+// that no install reads. Anything else is refused: a key that is not known
+// to be inert is not assumed to be.
+const INERT_KEYS = [
+  // What the package is and how it is published. Read by people, bundlers
+  // and `npm publish`, not by an install.
+  'private',
+  'type',
+  'description',
+  'main',
+  'module',
+  'types',
+  'typings',
+  'exports',
+  'browser',
+  'unpkg',
+  'jsdelivr',
+  'sideEffects',
+  'files',
+  'author',
+  'contributors',
+  'license',
+  'homepage',
+  'keywords',
+  'repository',
+  'bugs',
+  'funding',
+  // The browser extension's own fields (packages/devtools).
+  'displayName',
+  'manifest',
+];
+const CHECKED_KEYS = [
+  'name',
+  'version',
+  'scripts',
+  'engines',
+  'bin',
+  'publishConfig',
+  'pnpm',
+  ...MANIFEST_DEP_FIELDS,
+];
+const PUBLISH_CONFIG_KEYS = [
+  'access',
+  'tag',
+  'main',
+  'module',
+  'types',
+  'typings',
+  'exports',
+  'browser',
+  'unpkg',
+  'jsdelivr',
+];
+// A command name: what a `bin` entry is called on disk. One path segment.
+const BIN_NAME = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/;
+
+const isObject = (v) =>
+  v !== null && typeof v === 'object' && !Array.isArray(v);
+/** A path inside its own package: relative, and never climbing. */
+const inPackagePath = (p) =>
+  isString(p) &&
+  /^(\.\/)?[A-Za-z0-9@_-][A-Za-z0-9@_./-]*$/.test(p) &&
+  !p.split('/').some((s) => s === '..' || s === '');
+
 /** Check one project's parsed `package.json`. `isRoot`: the workspace root's. */
 export function checkManifest(manifest, file, isRoot) {
-  if (
-    manifest === null ||
-    typeof manifest !== 'object' ||
-    Array.isArray(manifest)
-  ) {
-    refuse(`${file}: not a JSON object`);
-  }
+  if (!isObject(manifest)) refuse(`${file}: not a JSON object`);
   const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  for (const k of Object.keys(manifest)) {
+    if (!INERT_KEYS.includes(k) && !CHECKED_KEYS.includes(k)) {
+      refuse(`${file}: \`${k}\` is not a key a manifest may have here`);
+    }
+  }
+  // A NAME BECOMES A DIRECTORY and a version part of one, so both are plain.
+  if (
+    own(manifest, 'name') &&
+    !(isString(manifest.name) && NAME.test(manifest.name))
+  ) {
+    refuse(`${file}: name is not a package name`);
+  }
+  if (
+    own(manifest, 'version') &&
+    !(isString(manifest.version) && VERSION.test(manifest.version))
+  ) {
+    refuse(`${file}: version is not a version`);
+  }
+  for (const field of ['scripts', 'engines']) {
+    if (!own(manifest, field)) continue;
+    if (
+      !isObject(manifest[field]) ||
+      !Object.values(manifest[field]).every(isString)
+    ) {
+      refuse(`${file}: ${field} is not an object of strings`);
+    }
+  }
+  // A `bin` ENTRY BECOMES A FILE, named after its key, wherever the package
+  // is linked. The key is one plain path segment — no scope, no separator —
+  // and the value a path inside the package.
+  if (own(manifest, 'bin')) {
+    const { bin } = manifest;
+    const entries = isString(bin)
+      ? [
+          [
+            own(manifest, 'name')
+              ? String(manifest.name).replace(/^@[^/]*\//, '')
+              : '',
+            bin,
+          ],
+        ]
+      : isObject(bin)
+        ? Object.entries(bin)
+        : refuse(`${file}: bin is not a string or an object`);
+    for (const [name, target] of entries) {
+      if (!BIN_NAME.test(name)) {
+        refuse(`${file}: bin names a command that is not one plain name`);
+      }
+      if (!inPackagePath(target)) {
+        refuse(`${file}: bin \`${name}\` is not a path inside the package`);
+      }
+    }
+  }
   for (const field of MANIFEST_DEP_FIELDS) {
     if (!own(manifest, field)) continue;
     const deps = manifest[field];
-    if (deps === null || typeof deps !== 'object' || Array.isArray(deps)) {
-      refuse(`${file}: ${field} is not an object`);
-    }
+    if (!isObject(deps)) refuse(`${file}: ${field} is not an object`);
     for (const [name, spec] of Object.entries(deps)) {
+      // The key is what the dependency is called in `node_modules`.
       if (!NAME.test(name)) refuse(`${file}: ${field} names \`${name}\``);
       if (!registrySpecifier(spec) && !workspaceSpecifier(spec)) {
         refuse(
@@ -540,18 +663,13 @@ export function checkManifest(manifest, file, isRoot) {
       }
     }
   }
-  // Fields that change what an install fetches, links or patches, and that
-  // no manifest here uses.
-  for (const field of ['resolutions', 'dependenciesMeta', 'publishDirectory']) {
-    if (own(manifest, field)) refuse(`${file}: \`${field}\` is not allowed`);
-  }
   if (own(manifest, 'publishConfig')) {
     const pc = manifest.publishConfig;
-    if (pc === null || typeof pc !== 'object')
-      refuse(`${file}: publishConfig is not an object`);
-    for (const field of ['directory', 'linkDirectory']) {
-      if (own(pc, field))
-        refuse(`${file}: publishConfig.${field} is not allowed`);
+    if (!isObject(pc)) refuse(`${file}: publishConfig is not an object`);
+    for (const k of Object.keys(pc)) {
+      if (!PUBLISH_CONFIG_KEYS.includes(k)) {
+        refuse(`${file}: publishConfig.${k} is not allowed`);
+      }
     }
   }
   if (own(manifest, 'pnpm')) {
@@ -560,20 +678,13 @@ export function checkManifest(manifest, file, isRoot) {
     // download) is refused.
     if (!isRoot) refuse(`${file}: a \`pnpm\` field outside the root manifest`);
     const cfg = manifest.pnpm;
-    if (cfg === null || typeof cfg !== 'object' || Array.isArray(cfg)) {
-      refuse(`${file}: pnpm is not an object`);
-    }
+    if (!isObject(cfg)) refuse(`${file}: pnpm is not an object`);
     for (const k of Object.keys(cfg)) {
       if (k !== 'overrides') refuse(`${file}: pnpm.${k} is not allowed`);
     }
     const overrides = cfg.overrides ?? {};
-    if (
-      overrides === null ||
-      typeof overrides !== 'object' ||
-      Array.isArray(overrides)
-    ) {
+    if (!isObject(overrides))
       refuse(`${file}: pnpm.overrides is not an object`);
-    }
     for (const [k, v] of Object.entries(overrides)) {
       if (!registrySpecifier(v)) {
         refuse(`${file}: pnpm.overrides \`${k}\` is not a registry range`);
@@ -730,17 +841,131 @@ export function checkAfter(root) {
   }
 }
 
+// --- the tripwire -----------------------------------------------------------------------
+//
+// The install runs in a container that can write to the workspace's own
+// files and to nothing else: not the repository's `.git`, not the runner's
+// temp directory where the trusted scripts are staged, not anything beside
+// the workspace. This records those three before the install and compares
+// them after. With the container in place it never differs; if it ever does,
+// containment has failed and the step must not go on to the agent.
+
+function walk(dir, visit, skip, rel = '') {
+  let entries;
+  try {
+    entries = readdirSync(path.join(dir, rel), { withFileTypes: true });
+  } catch {
+    visit(rel, null);
+    return;
+  }
+  for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : 1))) {
+    const r = rel === '' ? e.name : `${rel}/${e.name}`;
+    const full = path.join(dir, r);
+    if (skip?.(full)) continue;
+    const st = lstatSync(full);
+    visit(r, st, full);
+    if (st.isDirectory()) walk(dir, visit, skip, r);
+  }
+}
+const describe = (st) =>
+  st === null
+    ? 'unreadable'
+    : `${st.isDirectory() ? 'd' : st.isSymbolicLink() ? 'l' : 'f'} ${st.mode.toString(8)} ${st.isDirectory() ? '' : st.size} ${st.isDirectory() ? '' : Math.floor(st.mtimeMs)}`;
+
+/**
+ * What must not change across the install: every entry of `.git` (content
+ * hashed, except the object store, which is compared by size and time), every
+ * entry of `runnerTemp` (but `exclude`, this step's own directory), and the
+ * names beside the workspace and beside its parent.
+ */
+export function takeSnapshot(root, { runnerTemp = '', exclude = '' } = {}) {
+  const real = realpathSync(root);
+  const git = {};
+  const gitPath = path.join(real, '.git');
+  if (existsSync(gitPath)) {
+    const st = lstatSync(gitPath);
+    git['.'] = describe(st);
+    const hash = (full) =>
+      createHash('sha256').update(readFileSync(full)).digest('hex');
+    if (st.isFile()) git['.'] += ` ${hash(gitPath)}`;
+    if (st.isDirectory()) {
+      walk(gitPath, (rel, s, full) => {
+        git[rel] = describe(s);
+        if (s?.isFile() && !rel.startsWith('objects/')) {
+          git[rel] += ` ${hash(full)}`;
+        }
+        if (s?.isSymbolicLink()) git[rel] += ` ${readlinkSync(full)}`;
+      });
+    }
+  }
+  const temp = {};
+  if (runnerTemp !== '' && existsSync(runnerTemp)) {
+    const skipped = exclude === '' ? null : realpathSync(exclude);
+    walk(
+      realpathSync(runnerTemp),
+      (rel, s) => {
+        temp[rel] = describe(s);
+      },
+      (full) => full === skipped,
+    );
+  }
+  const beside = {};
+  for (const dir of [path.dirname(real), path.dirname(path.dirname(real))]) {
+    try {
+      beside[dir] = readdirSync(dir).sort();
+    } catch {
+      beside[dir] = null;
+    }
+  }
+  return { git, temp, beside };
+}
+
+/** Refuse if `after` is not `before`, naming the first thing that differs. */
+export function compareSnapshots(before, after) {
+  const what = {
+    git: "the repository's .git",
+    temp: "the runner's temp directory",
+    beside: 'the directories around the workspace',
+  };
+  for (const part of ['git', 'temp', 'beside']) {
+    const a = before[part] ?? {};
+    const b = after[part] ?? {};
+    for (const k of [
+      ...new Set([...Object.keys(a), ...Object.keys(b)]),
+    ].sort()) {
+      if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) {
+        refuse(
+          `the install changed ${what[part]} (${k}); it must only write inside the workspace's own files`,
+        );
+      }
+    }
+  }
+}
+
+const USAGE =
+  'usage: check-install-inputs.mjs before <root> | snapshot <root> <file> [<runner temp> <exclude>] | after <root> <file> [<runner temp> <exclude>]';
+
 if (
   process.argv[1] &&
   fileURLToPath(import.meta.url) === realpathSync(process.argv[1])
 ) {
-  const [, , mode, root] = process.argv;
+  const [, , mode, root, file, runnerTemp = '', exclude = ''] = process.argv;
   try {
-    if (!root || !['before', 'after'].includes(mode)) {
-      throw new Refusal('usage: check-install-inputs.mjs before|after <root>');
+    if (!root || !['before', 'snapshot', 'after'].includes(mode)) {
+      throw new Refusal(USAGE);
     }
-    if (mode === 'before') checkBefore(root);
-    else checkAfter(root);
+    if (mode === 'before') {
+      checkBefore(root);
+    } else {
+      if (!file) throw new Refusal(USAGE);
+      const now = takeSnapshot(root, { runnerTemp, exclude });
+      if (mode === 'snapshot') {
+        writeFileSync(file, JSON.stringify(now));
+      } else {
+        compareSnapshots(JSON.parse(readFileSync(file, 'utf8')), now);
+        checkAfter(root);
+      }
+    }
   } catch (err) {
     const message =
       err instanceof Refusal

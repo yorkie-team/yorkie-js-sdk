@@ -35,6 +35,13 @@
   lockfile says, and a lockfile can name fetchers other than the registry's.
   List what main's files actually contain and allow exactly that; a list of
   things to refuse is always one spelling short.
+- When each review finds another field of the same kind, stop listing
+  fields. Three rounds found three families of input that become a path or
+  a command. The fix that ended it does not read the input at all: it
+  bounds what the process can write. Validation is then the second layer,
+  and it can afford to be strict because it is not the only one.
+- A check that runs before a fetch cannot see what the fetch brings. A
+  registry package's own manifest is input too.
 - A line-by-line check of YAML is a guess at how the line will be written.
   Read one style strictly and refuse the rest, and compare the reader with a
   real parser on the real file once.

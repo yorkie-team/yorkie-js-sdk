@@ -28,8 +28,8 @@ the harness is [`docs/design/agent-harness.md`](../../docs/design/agent-harness.
 | `coverage-note.md` | What `ci.yml`'s lanes prove and do not, told to every lens |
 | `repo.test.mjs` | Grades the two files above, and the toolchain action, against this repository (`npm run test:repo` in `scripts/agent`). The reason each configured entry exists is written there, beside the assertion that pins it |
 | `repo.snapshot.json` | Every exported value and rendered prompt, recorded. A change to a gate, a prompt or a comment shows its before and after in this file's diff |
-| `../actions/agent-toolchain/action.yml` | pnpm (pinned by commit, major 9) and a lockfile-exact install with lifecycle scripts and pnpmfiles off, the branch's `.npmrc` set aside, and no cache. The install stays inside the workspace and fetches only registry packages: before it runs, the step refuses a tree with a `node_modules` already in it or a symbolic link that resolves outside, and anything `check-install-inputs.mjs` refuses; pnpm runs with a scrubbed environment; the step checks again afterwards. Audited against pnpm 9 only |
-| `../actions/agent-toolchain/check-install-inputs.mjs` | What the install may be told. It reads `pnpm-lock.yaml`, `pnpm-workspace.yaml` and the workspace's `package.json` files strictly — only the plain style pnpm writes; any other YAML spelling is refused — and allows only the shapes this repository's own files have: every locked package a registry package with an integrity hash (one exception, the `@buf` package, by its address on that scope's registry), every specifier a registry range or `workspace:`, every link to a project of this workspace, no key those files do not use |
+| `../actions/agent-toolchain/action.yml` | pnpm (pinned by commit, major 9) and a lockfile-exact install with lifecycle scripts and pnpmfiles off, the branch's `.npmrc` set aside, and no cache. THE INSTALL RUNS IN A CONTAINER (image pinned by digest) whose only writable mount is the workspace; the repository's `.git` and any `.trusted-*` checkout are covered by an empty read-only directory, nothing else of the runner is mounted, and no environment is passed in — so the install can write only to the workspace's own files, whatever its inputs say. Without Docker the step fails. Audited against pnpm 9 only |
+| `../actions/agent-toolchain/check-install-inputs.mjs` | The second layer, and the tripwire. Before the install it reads `pnpm-lock.yaml`, `pnpm-workspace.yaml` and the workspace's `package.json` files strictly — only the plain style pnpm writes; any other YAML spelling is refused — and allows only the shapes this repository's own files have: every locked package a registry package with an integrity hash (one exception, the `@buf` package, by its address on that scope's registry), every specifier a registry range or `workspace:`, every link to a project of this workspace, every name plain, and no manifest key beyond a fixed list (`bin` allowed with plain names and in-package targets). Around the install it records `.git`, the runner's temp directory and the directories beside the workspace, and fails the step if any of them changed |
 | `../actions/agent-toolchain/npmrc` | A copy of the root `.npmrc`. An agent job checks out only the action's directory from `main`, so the trusted `.npmrc` the install uses has to sit beside the action. Two tests fail when the two differ: `scripts/test/agent-toolchain-npmrc.test.mjs`, which `ci.yml` runs on every pull request, and `repo.test.mjs` |
 
 Outside the harness, and kept across a sync: `npm-publish.yml` and
@@ -84,6 +84,10 @@ style and is excluded from the root ESLint, lint-staged and the licence scan.
 - A new directory whose rules the Go server must apply identically:
   `fixGuard.replicatedRuleGlobs`, with the reason beside the pin in
   `repo.test.mjs`.
+- A manifest key no `package.json` here uses yet (`directories`, `man`,
+  `workspaces`, `packageManager`, …): the agent install refuses it. Add it
+  to the list in `check-install-inputs.mjs` once you know what an install
+  does with it.
 - A dependency that is not a plain registry package (a git or URL
   dependency, a local tarball, a patch, a `pnpm` setting in a manifest): the
   agent install refuses it, by design. Allowing one is a change to

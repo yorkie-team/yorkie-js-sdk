@@ -37,6 +37,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -1514,30 +1515,16 @@ test('the toolchain action installs lockfile-exact, runs nothing the branch wrot
   const code = codeOf(action);
   assert.match(code, /^runs:\n {2}using: composite$/m);
 
-  // Exactly one install, with every flag. `--frozen-lockfile` so the install
-  // is what the lockfile pins; `--ignore-scripts` and `--ignore-pnpmfile` so
-  // no lifecycle script and no `.pnpmfile.cjs` hook runs; and the location
-  // and version settings pinned on the command line, so a branch config
-  // cannot move the install outside the workspace or switch the pnpm that
-  // runs it.
   const joined = code.replace(/\\\n\s*/g, ' ');
-  const installs = [...joined.matchAll(/pnpm install([^\n]*)/g)];
-  assert.equal(installs.length, 1, 'expected exactly one `pnpm install`');
-  const args = installs[0][1].trim().split(/\s+/);
-  assert.deepEqual(args, [
-    '--frozen-lockfile',
-    '--ignore-scripts',
-    '--ignore-pnpmfile',
-    '--config.manage-package-manager-versions=false',
-    '--config.modules-dir=node_modules',
-    '--config.virtual-store-dir=node_modules/.pnpm',
-  ]);
-  // Nothing else from the working tree runs: no other pnpm or npm command, no
-  // package script, no `npx`, no script file, no `make`. A command is read at
-  // the start of a line or after `&&`, `||`, `;`, `|` or `(`; `find . …` and
-  // `-path ./.git` are arguments, not commands.
   const script = joined.slice(joined.indexOf('run: |'));
   assert.ok(script.length < joined.length, 'the install step has no script');
+
+  // WHAT THE STEP RUNS, AND HOW. Three programs take settings from their
+  // environment — node for the checker beside this file, and the Docker
+  // client — and each is started through `env -i` with the variables named
+  // here and no others. A command is read at the start of a line or after
+  // `&&`, `||`, `;`, `|` or `(`; none of these names may appear as one
+  // anywhere else, and nothing is run by path.
   const COMMAND = /(?:^|&&|\|\||;|\||\()[ \t]*([A-Za-z0-9_./-]+)/gm;
   const commands = new Set([...script.matchAll(COMMAND)].map((m) => m[1]));
   for (const forbidden of [
@@ -1548,6 +1535,7 @@ test('the toolchain action installs lockfile-exact, runs nothing the branch wrot
     'corepack',
     'make',
     'node',
+    'docker',
     'bash',
     'sh',
     'eval',
@@ -1563,25 +1551,107 @@ test('the toolchain action installs lockfile-exact, runs nothing the branch wrot
       `the action runs a file by path: ${command}`,
     );
   }
-  // WITH A SCRUBBED ENVIRONMENT, AND ONLY SO. The two programs the step runs
-  // that take settings from their environment — pnpm, and node for the
-  // checker beside this file — are started through `env -i` with the
-  // variables named here and no others, so nothing this job's environment
-  // holds reaches them. Each appears exactly as written; anywhere else,
-  // either name is a command the list above refuses.
   assert.ok(commands.has('env'), 'the command reader found no `env`');
   const viaEnv = [...script.matchAll(/^\s*env -i ([^\n]*)$/gm)].map((m) =>
     m[1].replace(/\s+/g, ' '),
   );
-  assert.deepEqual(viaEnv, [
-    'PATH="$PATH" node "$checker" before "$root"',
-    `PATH="$PATH" HOME="$HOME" CI=true pnpm install ${args.join(' ')}`,
-    'PATH="$PATH" node "$checker" after "$root"',
-  ]);
+  const RECORD = '"$root" "$work/before.json" "${RUNNER_TEMP:-}" "$work"';
+  assert.equal(viaEnv.length, 4, 'expected four `env -i` commands');
+  assert.equal(viaEnv[0], 'PATH="$PATH" node "$checker" before "$root"');
+  assert.equal(viaEnv[1], `PATH="$PATH" node "$checker" snapshot ${RECORD}`);
+  assert.equal(viaEnv[3], `PATH="$PATH" node "$checker" after ${RECORD}`);
+
+  // THE INSTALL RUNS IN A CONTAINER, AND ONLY THERE. These are text
+  // assertions, on purpose: the unit lane stubs Docker (the tests below check
+  // the command the step builds and that it refuses to run without one), so
+  // what the real container is given can only be pinned by reading it.
+  //
+  //   - the workspace, at its own path, is the one writable mount;
+  //   - `.git` and every `.trusted-*` directory are covered read-only by an
+  //     empty directory, so the install can neither read nor change them;
+  //   - pnpm is the copy already set up, read-only; the image is pinned by
+  //     digest; the user is the runner's own; no capability, no privilege
+  //     gain; `CI` and a scratch `HOME` are the whole environment;
+  //   - the install itself: lockfile-exact, no lifecycle script, no pnpmfile,
+  //     locations pinned, the store inside the container.
   assert.equal(
-    (script.match(/(?<![./\w-])(?:pnpm|node)\b/g) ?? []).length,
-    3,
-    'pnpm or node is named somewhere other than the three `env -i` lines',
+    viaEnv[2],
+    [
+      'PATH="$PATH" HOME="$HOME" docker run --rm',
+      '--user "$(id -u):$(id -g)"',
+      '--cap-drop ALL',
+      '--security-opt no-new-privileges',
+      '--env CI=true',
+      '--env HOME=/tmp/home',
+      '--workdir "$root"',
+      '--volume "$root:$root"',
+      '${covered[@]+"${covered[@]}"}',
+      '--volume "$pnpm_dir:/opt/pnpm:ro"',
+      '--entrypoint node',
+      '"$IMAGE"',
+      '/opt/pnpm/bin/pnpm.cjs install',
+      '--frozen-lockfile',
+      '--ignore-scripts',
+      '--ignore-pnpmfile',
+      '--config.manage-package-manager-versions=false',
+      '--config.modules-dir=node_modules',
+      '--config.virtual-store-dir=node_modules/.pnpm',
+      '--config.store-dir=/tmp/pnpm-store',
+    ].join(' '),
+  );
+  assert.equal(
+    (script.match(/\bdocker run\b/g) ?? []).length,
+    1,
+    'expected exactly one container',
+  );
+  assert.ok(
+    !/--privileged|docker\.sock|--pid|--ipc|--network|--env-file|--volumes-from|--device|--cap-add|--mount/.test(
+      script,
+    ),
+    'the container is given something beyond the mounts pinned above',
+  );
+  // What is covered: `.git` (a directory, or a file in a linked worktree)
+  // and each `.trusted-*` directory — and nothing else is added to the list.
+  const covers = [...script.matchAll(/covered\+=\(([^)]*)\)/g)].map(
+    (m) => m[1],
+  );
+  assert.deepEqual(covers, [
+    '--volume "$work/empty:$root/.git:ro"',
+    '--volume "$work/empty-file:$root/.git:ro"',
+    '--volume "$work/empty:$dir:ro"',
+  ]);
+  assert.match(script, /for dir in "\$root"\/\.trusted-\*; do/);
+  // The image: Node 22, by digest, from the step's `env`.
+  assert.match(
+    code,
+    /\n {8}IMAGE: node:22-bookworm-slim@sha256:[0-9a-f]{64}\n/,
+    'the container image is not Node 22 pinned by digest',
+  );
+  // NO FALLBACK. Without Docker the step stops before anything is installed,
+  // and there is no other install in it.
+  const needsDocker = script.indexOf(
+    'command -v docker > /dev/null || refuse "Docker is not available; the install does not run outside a container"',
+  );
+  const install = script.indexOf('docker run --rm');
+  assert.ok(
+    needsDocker >= 0 && needsDocker < install,
+    'the step does not refuse to run without Docker',
+  );
+  assert.equal(
+    (script.match(/\binstall --frozen-lockfile\b/g) ?? []).length,
+    1,
+    'expected exactly one install',
+  );
+  assert.ok(
+    !/\bpnpm (install|i|add|exec|run|dlx)\b/.test(script),
+    'the step runs pnpm outside the container',
+  );
+  // pnpm is the set-up copy, checked to be the JavaScript distribution of
+  // major 9 before it is mounted.
+  assert.match(script, /\*\/node_modules\/pnpm\/bin\/pnpm\.cjs\) pnpm_dir=/);
+  assert.match(
+    script,
+    /grep -q '"version": "9\\\.' "\$pnpm_dir\/package\.json"/,
   );
   // The checker is the file beside the action, located like the trusted
   // npmrc and refused if it is missing or a link.
@@ -1596,21 +1666,21 @@ test('the toolchain action installs lockfile-exact, runs nothing the branch wrot
     "find -P . -name .npmrc -not -path '*/node_modules/*' -prune -print0",
   );
   const trusted = joined.indexOf('cp "$trusted" .npmrc');
-  const install = joined.indexOf('pnpm install');
+  const containerAt = joined.indexOf('docker run --rm');
   const removed = joined.indexOf('rm .npmrc');
   const restored = joined.indexOf(
-    '(cd "$stash" && find -P . -name .npmrc -prune -print0)',
+    '(cd "$work/stash" && find -P . -name .npmrc -prune -print0)',
   );
   assert.ok(
     aside >= 0 && trusted > aside,
     "the branch's .npmrc files must be set aside before main's is put in place",
   );
   assert.ok(
-    trusted < install,
+    trusted < containerAt,
     "main's .npmrc must be in place before the install",
   );
   assert.ok(
-    install < removed && removed < restored,
+    containerAt < removed && removed < restored,
     "main's .npmrc must be removed, and the branch's put back, after the install",
   );
   // Main's copy is read from beside the action — the one directory a caller
@@ -1621,7 +1691,7 @@ test('the toolchain action installs lockfile-exact, runs nothing the branch wrot
   // action whatever ran before it.
   assert.match(
     code,
-    /\n {6}env:\n {8}ACTION_PATH: \$\{\{ github\.action_path \}\}\n {6}run: \|\n/,
+    /\n {6}env:\n {8}ACTION_PATH: \$\{\{ github\.action_path \}\}\n/,
   );
   assert.match(joined, /trusted="\$ACTION_PATH\/npmrc"/);
   assert.ok(
@@ -1644,31 +1714,23 @@ test('the toolchain action installs lockfile-exact, runs nothing the branch wrot
   const cd = joined.indexOf('cd "$GITHUB_WORKSPACE"');
   assert.ok(cd >= 0 && cd < aside, 'the step does not start at the workspace');
 
-  // THE ORDER OF THE REFUSALS. What each refuses is exercised for real in the
-  // next tests; that every one of them comes BEFORE the install, and the
-  // re-check after it, can only be read off the text — so these are text
-  // assertions, on purpose.
+  // THE ORDER. What each check refuses is exercised for real in the next
+  // tests; that every refusal and the record come BEFORE the install, and
+  // the comparison after it, can only be read off the text.
   for (const text of [
     '-name node_modules -type l -print0',
     '-name node_modules -prune -print0',
     'is a symbolic link that resolves outside the workspace',
     'node "$checker" before "$root"',
+    'node "$checker" snapshot',
   ]) {
     const at = joined.indexOf(text);
-    assert.ok(
-      at >= 0 && at < aside,
-      `the install runs before this refusal: ${text}`,
-    );
+    assert.ok(at >= 0 && at < aside, `the install runs before this: ${text}`);
   }
-  for (const text of [
-    'node "$checker" after "$root"',
-    'created or removed something beside the workspace',
-  ]) {
-    assert.ok(
-      joined.indexOf(text) > restored,
-      `the re-check is missing or runs before the install: ${text}`,
-    );
-  }
+  assert.ok(
+    joined.indexOf('node "$checker" after') > restored,
+    'the comparison after the install is missing or runs before it',
+  );
 
   // The pnpm setup is pinned to a commit — it runs in a job whose
   // `.git/config` already holds the App token — and its version is written
@@ -1757,9 +1819,12 @@ const json = (o) => `${JSON.stringify(o, null, 2)}\n`;
 
 /**
  * The install step's script, taken out of `action.yml`, with a way to run it
- * on a fresh tree: `run(setup, { extra, env })`. `pnpm` is a stub that
- * records that it ran, with what arguments and environment, and makes the
- * directory an install makes. The trees live under the OS temp directory.
+ * on a fresh tree: `run(setup, { extra, env, docker })`. The step runs the
+ * install in a container; here `docker` is a stub that records that it was
+ * reached, with what arguments and environment, and makes the directory an
+ * install makes — so these tests exercise everything the step does around
+ * the container, and the command it builds for it, without needing one. The
+ * trees live under the OS temp directory.
  */
 function installStep() {
   const action = readFileSync(path.join(ACTION_DIR, 'action.yml'), 'utf8');
@@ -1770,22 +1835,27 @@ function installStep() {
     .split('\n')
     .map((l) => l.replace(/^ {8}/, ''))
     .join('\n');
+  const image = /\n {8}IMAGE: (\S+)\n/.exec(action)?.[1];
+  assert.ok(image, 'the install step names no image');
   const base = mkdtempSync(path.join(os.tmpdir(), 'agent-toolchain-'));
   const bin = path.join(base, 'bin');
-  for (const d of [bin, path.join(base, 'ran'), path.join(base, 'extra')]) {
-    mkdirSync(d);
+  const nodocker = path.join(base, 'nodocker');
+  const temp = path.join(base, 'rt');
+  for (const d of ['bin', 'nodocker', 'ran', 'extra', 'rt', 'rt/agent-tools']) {
+    mkdirSync(path.join(base, d));
   }
+  writeFileSync(path.join(temp, 'agent-tools', 'script.mjs'), 'trusted');
   writeFileSync(path.join(base, 'step.sh'), script);
   // The stub is told nothing through its environment — the step scrubs it —
   // so it finds its record, and any extra thing to do, beside itself, by the
   // name of the case directory it is run in.
   writeFileSync(
-    path.join(bin, 'pnpm'),
+    path.join(bin, 'docker'),
     [
       '#!/bin/sh',
       'here="$(dirname "$0")/.."',
       'n="$(basename "$(dirname "$PWD")")"',
-      'echo "$*" > "$here/ran/$n"',
+      'printf "%s\\n" "$@" > "$here/ran/$n"',
       'env > "$here/ran/$n.env"',
       'cat .npmrc > "$here/ran/$n.npmrc"',
       'mkdir -p node_modules',
@@ -1794,14 +1864,60 @@ function installStep() {
     ].join('\n'),
     { mode: 0o755 },
   );
+  // pnpm as the setup action leaves it: a link on the PATH to the JavaScript
+  // distribution, which is what the step mounts into the container.
+  const pnpmDir = path.join(base, 'setup-pnpm', 'node_modules', 'pnpm');
+  mkdirSync(path.join(pnpmDir, 'bin'), { recursive: true });
+  writeFileSync(path.join(pnpmDir, 'bin', 'pnpm.cjs'), '#!/bin/sh\n', {
+    mode: 0o755,
+  });
+  writeFileSync(
+    path.join(pnpmDir, 'package.json'),
+    json({ name: 'pnpm', version: '9.15.9' }),
+  );
+  for (const d of [bin, nodocker]) {
+    symlinkSync(path.join(pnpmDir, 'bin', 'pnpm.cjs'), path.join(d, 'pnpm'));
+  }
+  // A PATH with no Docker on it at all, whatever this machine has: the
+  // tools the step uses, one link each.
+  for (const tool of [
+    'bash',
+    'node',
+    'env',
+    'find',
+    'realpath',
+    'grep',
+    'mktemp',
+    'mkdir',
+    'chmod',
+    'cp',
+    'mv',
+    'rm',
+    'id',
+    'dirname',
+    'ls',
+    'cat',
+  ]) {
+    const found = execFileSync('sh', ['-c', `command -v ${tool}`], {
+      encoding: 'utf8',
+      env: {
+        PATH: [path.dirname(process.execPath), process.env.PATH].join(
+          path.delimiter,
+        ),
+      },
+    }).trim();
+    symlinkSync(found, path.join(nodocker, tool));
+  }
   const outside = path.join(base, 'outside');
   mkdirSync(outside);
   writeFileSync(path.join(outside, 'keep'), 'keep');
   let n = 0;
-  const run = (setup, { extra = '', env = {} } = {}) => {
+  const run = (setup, { extra = '', env = {}, docker = true } = {}) => {
     const name = `case${++n}`;
     const dir = path.join(base, name, 'ws');
     mkdirSync(path.join(dir, 'packages', 'sdk'), { recursive: true });
+    mkdirSync(path.join(dir, '.git', 'hooks'), { recursive: true });
+    writeFileSync(path.join(dir, '.git', 'config'), '[core]\n');
     writeFileSync(path.join(dir, 'pnpm-workspace.yaml'), TREE.workspace);
     writeFileSync(path.join(dir, 'pnpm-lock.yaml'), TREE.lockfile);
     writeFileSync(path.join(dir, 'package.json'), json(TREE.root));
@@ -1816,14 +1932,18 @@ function installStep() {
         cwd: dir,
         encoding: 'utf8',
         env: {
-          // The stub first, then this Node (the checker runs under it) and
-          // the system's tools.
-          PATH: [bin, path.dirname(process.execPath), process.env.PATH].join(
-            path.delimiter,
-          ),
+          // The stubs first, then this Node (the checker runs under it) and
+          // the system's tools — or, for `docker: false`, only the links.
+          PATH: docker
+            ? [bin, path.dirname(process.execPath), process.env.PATH].join(
+                path.delimiter,
+              )
+            : nodocker,
           HOME: path.join(base, 'home'),
+          RUNNER_TEMP: temp,
           GITHUB_WORKSPACE: dir,
           ACTION_PATH: ACTION_DIR,
+          IMAGE: image,
           ...env,
         },
       },
@@ -1839,6 +1959,9 @@ function installStep() {
   return {
     run,
     outside,
+    temp,
+    image,
+    pnpmDir,
     cleanup: () => rmSync(base, { recursive: true, force: true }),
   };
 }
@@ -1872,6 +1995,7 @@ test('the install step installs an ordinary tree, under a scrubbed environment',
         );
         // A link that stays inside is not refused.
         symlinkSync('packages', path.join(dir, 'alias'));
+        mkdirSync(path.join(dir, '.trusted-toolchain'));
       },
       {
         env: {
@@ -1903,30 +2027,140 @@ test('the install step installs an ordinary tree, under a scrubbed environment',
       ),
       'x',
     );
-    assert.match(
-      readFileSync(ok.ran, 'utf8'),
-      /^install --frozen-lockfile --ignore-scripts --ignore-pnpmfile /,
+    // THE CONTAINER THE STEP ASKS FOR, argument by argument, for this tree:
+    // the workspace at its own path, `.git` and the `.trusted-*` directory
+    // covered read-only by the step's empty directory, pnpm read-only, the
+    // pinned image, and the install.
+    const real = realpathSync(ok.dir);
+    const args = readFileSync(ok.ran, 'utf8').trimEnd().split('\n');
+    const work = /^(.*\/agent-toolchain\.[A-Za-z0-9]+)\/empty:/.exec(
+      args.find((a) => a.endsWith('/.git:ro')) ?? '',
+    )?.[1];
+    assert.ok(
+      work && realpathSync(path.dirname(work)) === realpathSync(step.temp),
+      "the directory that covers `.git` is not the step's own, outside the workspace",
     );
-    // What the install was given: a PATH, a HOME and `CI`. (`PWD`, `SHLVL`
-    // and `_` are the shell's own.)
+    assert.deepEqual(args, [
+      'run',
+      '--rm',
+      '--user',
+      `${process.getuid()}:${process.getgid()}`,
+      '--cap-drop',
+      'ALL',
+      '--security-opt',
+      'no-new-privileges',
+      '--env',
+      'CI=true',
+      '--env',
+      'HOME=/tmp/home',
+      '--workdir',
+      real,
+      '--volume',
+      `${real}:${real}`,
+      '--volume',
+      `${work}/empty:${real}/.git:ro`,
+      '--volume',
+      `${work}/empty:${real}/.trusted-toolchain:ro`,
+      '--volume',
+      `${realpathSync(step.pnpmDir)}:/opt/pnpm:ro`,
+      '--entrypoint',
+      'node',
+      step.image,
+      '/opt/pnpm/bin/pnpm.cjs',
+      'install',
+      '--frozen-lockfile',
+      '--ignore-scripts',
+      '--ignore-pnpmfile',
+      '--config.manage-package-manager-versions=false',
+      '--config.modules-dir=node_modules',
+      '--config.virtual-store-dir=node_modules/.pnpm',
+      '--config.store-dir=/tmp/pnpm-store',
+    ]);
+    // The step's own directory is gone when it is done.
+    assert.equal(existsSync(work), false);
+    // What the Docker client was given: a PATH and a HOME. (`PWD`, `SHLVL`
+    // and `_` are the shell's own.) The container gets `CI` and a scratch
+    // `HOME` through `--env`, above, and nothing of this job's.
     const given = readFileSync(`${ok.ran}.env`, 'utf8')
       .split('\n')
       .filter(Boolean)
       .map((l) => l.split('=')[0])
       .filter((k) => !['PWD', 'SHLVL', '_', 'OLDPWD'].includes(k))
       .sort();
-    assert.deepEqual(given, ['CI', 'HOME', 'PATH']);
+    assert.deepEqual(given, ['HOME', 'PATH']);
 
-    // AFTER THE INSTALL: something appearing beside the workspace, or an
-    // entry of `node_modules` that leads outside it, fails the step even
-    // though nothing before the install saw it coming.
-    const beside = step.run(null, { extra: 'mkdir -p ../sibling\n' });
-    assert.equal(beside.installed, true);
-    assert.notEqual(beside.status, 0);
+    // NO DOCKER, NO INSTALL. With none on the PATH the step fails before
+    // anything is installed; it has no other way to install.
+    const without = step.run(null, { docker: false });
+    assert.notEqual(without.status, 0);
     assert.match(
-      beside.err,
-      /created or removed something beside the workspace/,
+      without.err,
+      /Docker is not available; the install does not run outside a container/,
     );
+    assert.equal(existsSync(path.join(without.dir, 'node_modules')), false);
+    // A pnpm of another major is not mounted: the step was audited against 9.
+    const pnpmManifest = path.join(step.pnpmDir, 'package.json');
+    writeFileSync(pnpmManifest, json({ name: 'pnpm', version: '10.5.2' }));
+    const otherPnpm = step.run(null);
+    writeFileSync(pnpmManifest, json({ name: 'pnpm', version: '9.15.9' }));
+    assert.notEqual(otherPnpm.status, 0);
+    assert.match(otherPnpm.err, /pnpm is not major 9/);
+    assert.equal(otherPnpm.installed, false);
+
+    // THE TRIPWIRE. The container cannot write to `.git`, to the runner's
+    // temp directory or beside the workspace, so nothing here can happen for
+    // real; the stub does each anyway, and the step must notice and fail.
+    for (const [name, extra, message] of [
+      [
+        'a new hook',
+        'echo x > .git/hooks/pre-commit\n',
+        /changed the repository's \.git \(hooks\/pre-commit\)/,
+      ],
+      [
+        'a changed config',
+        'echo x >> .git/config\n',
+        /changed the repository's \.git \(config\)/,
+      ],
+      [
+        'a config of the same size and time, with other content',
+        'touch -r .git/config .git/ref\nprintf "[cora]\\n" > .git/config\ntouch -r .git/ref .git/config\nrm .git/ref\n',
+        /changed the repository's \.git \(config\)/,
+      ],
+      [
+        'a changed staged script',
+        `echo x > "${step.temp}/agent-tools/script.mjs"\n`,
+        /changed the runner's temp directory \(agent-tools\/script\.mjs\)/,
+      ],
+      [
+        'a new file in the temp directory',
+        `echo x > "${step.temp}/new"\n`,
+        /changed the runner's temp directory \(new\)/,
+      ],
+      [
+        'something beside the workspace',
+        'mkdir -p ../sibling\n',
+        /changed the directories around the workspace/,
+      ],
+      [
+        'something beside its parent',
+        'mkdir -p ../../sibling\n',
+        /changed the directories around the workspace/,
+      ],
+    ]) {
+      const r = step.run(null, { extra });
+      assert.equal(r.installed, true, name);
+      assert.notEqual(r.status, 0, `${name}: the step did not fail`);
+      assert.match(r.err, message, name);
+      rmSync(path.join(step.temp, 'new'), { force: true });
+      rmSync(path.join(path.dirname(path.dirname(r.dir)), 'sibling'), {
+        recursive: true,
+        force: true,
+      });
+      writeFileSync(
+        path.join(step.temp, 'agent-tools', 'script.mjs'),
+        'trusted',
+      );
+    }
     for (const entry of ['dep', '@scope/dep']) {
       const led = step.run(null, {
         extra: `mkdir -p "node_modules/$(dirname ${entry})"\nln -s "${step.outside}" node_modules/${entry}\n`,
@@ -2296,7 +2530,7 @@ test('the install step fetches registry packages and nothing else', () => {
         manifest('package.json', (m) => {
           m.resolutions = { dep: 'file:../outside' };
         }),
-        /`resolutions` is not allowed/,
+        /`resolutions` is not a key a manifest may have here/,
       ],
       [
         'a `pnpm` field in a package',
@@ -2317,7 +2551,134 @@ test('the install step fetches registry packages and nothing else', () => {
         manifest('package.json', (m) => {
           m.dependenciesMeta = { sdk: { injected: true } };
         }),
-        /`dependenciesMeta` is not allowed/,
+        /`dependenciesMeta` is not a key a manifest may have here/,
+      ],
+      // --- what a manifest says that becomes a path ---
+      [
+        'a bin whose name climbs out of its directory',
+        manifest('packages/sdk/package.json', (m) => {
+          m.bin = { '@x/../../../outside/tool': './x.js' };
+        }),
+        /bin names a command that is not one plain name/,
+      ],
+      [
+        "a bin whose name leads into the repository's own directory",
+        manifest('packages/sdk/package.json', (m) => {
+          m.bin = { '@x/../../.git/hooks/pre-commit': './x.js' };
+        }),
+        /bin names a command that is not one plain name/,
+      ],
+      [
+        'a bin with a scope in its name',
+        manifest('packages/sdk/package.json', (m) => {
+          m.bin = { '@x/tool': './x.js' };
+        }),
+        /bin names a command that is not one plain name/,
+      ],
+      [
+        'a bin named by a package name that is a path',
+        manifest('packages/sdk/package.json', (m) => {
+          m.name = '@x/../../../outside/tool';
+          m.bin = './x.js';
+        }),
+        /name is not a package name/,
+      ],
+      [
+        'a bin that points outside its package',
+        manifest('packages/sdk/package.json', (m) => {
+          m.bin = { tool: '../../../outside/tool' };
+        }),
+        /bin `tool` is not a path inside the package/,
+      ],
+      [
+        'a bin that is neither a string nor an object',
+        manifest('packages/sdk/package.json', (m) => {
+          m.bin = ['./x.js'];
+        }),
+        /bin is not a string or an object/,
+      ],
+      [
+        'a directory of bins',
+        manifest('packages/sdk/package.json', (m) => {
+          m.directories = { bin: 'b' };
+        }),
+        /`directories` is not a key a manifest may have here/,
+      ],
+      [
+        'a package name that is a path',
+        manifest('packages/sdk/package.json', (m) => {
+          m.name = '../../outside';
+        }),
+        /name is not a package name/,
+      ],
+      [
+        'a version that is a path',
+        manifest('packages/sdk/package.json', (m) => {
+          m.version = '1.0.0/../../x';
+        }),
+        /version is not a version/,
+      ],
+      [
+        'a dependency called by a path',
+        manifest('package.json', (m) => {
+          m.devDependencies['../../outside'] = 'workspace:*';
+        }),
+        /devDependencies names `\.\.\/\.\.\/outside`/,
+      ],
+      [
+        'a scoped dependency called by a path',
+        manifest('package.json', (m) => {
+          m.devDependencies['@a/../../../outside'] = '^1.0.0';
+        }),
+        /devDependencies names/,
+      ],
+      [
+        'a locked dependency called by a path',
+        lock('      sdk:\n', '      ../../outside:\n'),
+        /\.\.\/\.\.\/outside is not a package name/,
+      ],
+      [
+        'a snapshot dependency called by a path',
+        lock(
+          '  dep@1.0.0: {}',
+          '  dep@1.0.0:\n    dependencies:\n      ../../outside: 1.0.0',
+        ),
+        /is not a registry version/,
+      ],
+      [
+        'a key no manifest here uses',
+        manifest('packages/sdk/package.json', (m) => {
+          m.man = ['../../../outside/keep'];
+        }),
+        /`man` is not a key a manifest may have here/,
+      ],
+      [
+        'workspaces declared in a manifest',
+        manifest('package.json', (m) => {
+          m.workspaces = ['../*'];
+        }),
+        /`workspaces` is not a key a manifest may have here/,
+      ],
+      [
+        'bundled dependencies',
+        manifest('packages/sdk/package.json', (m) => {
+          m.bundledDependencies = ['dep'];
+        }),
+        /`bundledDependencies` is not a key a manifest may have here/,
+      ],
+      [
+        'a publishConfig key that is not on the list',
+        manifest('packages/sdk/package.json', (m) => {
+          m.publishConfig = { executableFiles: ['./x'] };
+        }),
+        /publishConfig\.executableFiles is not allowed/,
+      ],
+      [
+        'scripts that are not strings',
+        manifest('package.json', (m) => {
+          m.scripts = { build: ['x'] };
+        }),
+        /scripts is not an object of strings/,
       ],
       [
         'a manifest in another format',
@@ -2346,6 +2707,21 @@ test('the install step fetches registry packages and nothing else', () => {
       assert.match(r.err, message, name);
       assert.match(r.err, /^::error::agent-toolchain: /m, name);
       assert.equal(r.installed, false, `${name}: the install was reached`);
+    }
+
+    // A command a package offers under one plain name, from a file of its
+    // own, is an ordinary thing to have, and installs.
+    for (const bin of [
+      { tool: './x.js' },
+      { 'my-tool.2': 'bin/x.js' },
+      './x.js',
+    ]) {
+      const r = step.run(
+        manifest('packages/sdk/package.json', (m) => {
+          m.bin = bin;
+        }),
+      );
+      assert.equal(r.status, 0, r.err);
     }
 
     // THE ONE EXCEPTION, and only as this repository has it: a package of

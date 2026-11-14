@@ -31,17 +31,34 @@
 # saved by a run in the default branch's context (`issue_comment`,
 # `workflow_run`) is one `ci.yml` and the npm publish can restore.
 #
-# THE INSTALL STAYS INSIDE THE WORKSPACE, AND FETCHES ONLY REGISTRY PACKAGES.
-# Flags and settings are not the only thing that decides what a package
-# manager does: the tree it is pointed at and the files that tell it what to
-# install do too. So before installing, the step refuses a tree in which a
-# `node_modules` exists or is a symbolic link, or any symbolic link resolves
-# outside the workspace; and `check-install-inputs.mjs` refuses a lockfile,
-# workspace file or manifest that is not of exactly the shape this
-# repository's own have — every package a registry package locked by its
-# integrity hash, every specifier a registry range or `workspace:`. The
-# install runs with a scrubbed environment, and the step checks again
-# afterwards.
+# THE INSTALL CAN WRITE ONLY TO THE WORKSPACE'S OWN FILES. Two layers, and the
+# first does not depend on the second being complete.
+#
+# 1. CONTAINMENT. `pnpm install` runs in a container. The workspace is the
+#    only thing mounted writable; the repository's `.git` and every
+#    `.trusted-*` checkout in it are covered by an empty read-only directory,
+#    so the install can neither read nor change them; nothing else of the
+#    runner — its temp directory, where the trusted scripts and configuration
+#    are staged, its home, its tools — is in the container at all. No
+#    environment is passed in, the user is the runner's own and unprivileged,
+#    and the image is pinned by digest. Whatever a lockfile, a manifest or a
+#    package fetched from the registry tells the install to do, the furthest
+#    it can reach is a file of the branch's own tree. If Docker is not
+#    available the step FAILS: there is no uncontained fallback.
+# 2. AN ALLOW-LIST. Before the install, `check-install-inputs.mjs` refuses a
+#    lockfile, workspace file or manifest that is not of exactly the shape
+#    this repository's own have, and the step refuses a tree with a
+#    `node_modules` in it or a symbolic link that leaves the workspace. This
+#    is what keeps the install to registry packages; it cannot see inside a
+#    package the registry serves, which is why it is the second layer.
+#
+# And a tripwire: `.git`, the runner's temp directory and the directories
+# around the workspace are recorded before the install and compared after.
+# With the container in place they never differ.
+#
+# WHAT THE CONTAINER STILL SHARES: the workspace's files, which are the
+# branch's anyway, and the network, which the install needs for the registry.
+# It holds no credential to send anywhere.
 #
 # THIS WAS AUDITED AGAINST PNPM 9, which reads settings from `.npmrc` and the
 # command line only. A later major reads more of them from files the branch
@@ -49,8 +66,9 @@
 # `repo.test.mjs` fails on any other major to say so.
 #
 # `.github/agent-harness/repo.test.mjs` pins all of this: the action-setup
-# commit, the pnpm major against `ci.yml`, the install flags, the refusals,
-# no cache, and `npmrc` here against the root `.npmrc`.
+# commit, the pnpm major against `ci.yml`, the install flags, the container's
+# mounts and options, the refusals, no cache, and `npmrc` here against the
+# root `.npmrc`.
 name: Agent toolchain
 description: pnpm and the workspace dependencies an agent job verifies with, installed without running anything from the working tree.
 runs:
@@ -83,6 +101,9 @@ runs:
       # before it.
       env:
         ACTION_PATH: ${{ github.action_path }}
+        # Node 22 on Debian, by digest: the Node the callers set up, and the C
+        # library the runner has, so what is installed runs on the runner.
+        IMAGE: node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee
       run: |
         set -euo pipefail
         refuse() {
@@ -133,33 +154,76 @@ runs:
           refuse "the toolchain action's check-install-inputs.mjs is missing beside action.yml"
         fi
         env -i PATH="$PATH" node "$checker" before "$root"
-        outside_before="$(ls -A "$root/..")"
+        # CONTAINED, OR NOT AT ALL. The install below runs in a container; if
+        # there is no Docker to run it in, the step stops here rather than
+        # install on the runner itself.
+        command -v docker > /dev/null || refuse "Docker is not available; the install does not run outside a container"
+        # pnpm is the copy the step above set up, mounted read-only and run by
+        # the container's Node: nothing is downloaded to get it.
+        pnpm_bin="$(command -v pnpm)" || refuse "pnpm is not set up"
+        pnpm_cjs="$(realpath "$pnpm_bin")"
+        case "$pnpm_cjs" in
+          */node_modules/pnpm/bin/pnpm.cjs) pnpm_dir="${pnpm_cjs%/bin/pnpm.cjs}" ;;
+          *) refuse "pnpm is not the JavaScript distribution this step mounts into the container" ;;
+        esac
+        grep -q '"version": "9\.' "$pnpm_dir/package.json" || refuse "pnpm is not major 9"
 
-        stash=$(mktemp -d)
+        # This step's own directory, outside the workspace: the branch's
+        # `.npmrc` files while they are set aside, the empty directory that
+        # covers `.git`, and the record the tripwire compares.
+        work="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/agent-toolchain.XXXXXX")"
+        mkdir "$work/stash" "$work/empty"
+        : > "$work/empty-file"
+        chmod 555 "$work/empty"
+        env -i PATH="$PATH" node "$checker" snapshot "$root" "$work/before.json" "${RUNNER_TEMP:-}" "$work"
+
         find -P . -name .npmrc -not -path '*/node_modules/*' -prune -print0 |
           while IFS= read -r -d '' f; do
-            mkdir -p "$stash/$(dirname "$f")"
-            mv "$f" "$stash/$f"
+            mkdir -p "$work/stash/$(dirname "$f")"
+            mv "$f" "$work/stash/$f"
           done
         cp "$trusted" .npmrc
-        # WITH A SCRUBBED ENVIRONMENT. A package manager takes settings from
-        # its environment as readily as from a file, so the install inherits
-        # none of this job's: it is given a PATH, a HOME and `CI`, and
-        # nothing else.
-        env -i PATH="$PATH" HOME="$HOME" CI=true \
-          pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile \
+
+        # What the container may not see or touch inside the workspace.
+        covered=()
+        if [ -d "$root/.git" ]; then
+          covered+=(--volume "$work/empty:$root/.git:ro")
+        elif [ -e "$root/.git" ]; then
+          covered+=(--volume "$work/empty-file:$root/.git:ro")
+        fi
+        for dir in "$root"/.trusted-*; do
+          if [ -d "$dir" ]; then covered+=(--volume "$work/empty:$dir:ro"); fi
+        done
+        # The workspace at the SAME path as on the runner, so every path the
+        # install records is one the runner can use afterwards. The store is
+        # inside the container and goes with it.
+        env -i PATH="$PATH" HOME="$HOME" \
+          docker run --rm \
+          --user "$(id -u):$(id -g)" \
+          --cap-drop ALL \
+          --security-opt no-new-privileges \
+          --env CI=true \
+          --env HOME=/tmp/home \
+          --workdir "$root" \
+          --volume "$root:$root" \
+          ${covered[@]+"${covered[@]}"} \
+          --volume "$pnpm_dir:/opt/pnpm:ro" \
+          --entrypoint node \
+          "$IMAGE" \
+          /opt/pnpm/bin/pnpm.cjs install --frozen-lockfile --ignore-scripts --ignore-pnpmfile \
           --config.manage-package-manager-versions=false \
           --config.modules-dir=node_modules \
-          --config.virtual-store-dir=node_modules/.pnpm
+          --config.virtual-store-dir=node_modules/.pnpm \
+          --config.store-dir=/tmp/pnpm-store
         rm .npmrc
-        (cd "$stash" && find -P . -name .npmrc -prune -print0) |
-          while IFS= read -r -d '' f; do mv "$stash/$f" "$f"; done
+        (cd "$work/stash" && find -P . -name .npmrc -prune -print0) |
+          while IFS= read -r -d '' f; do mv "$work/stash/$f" "$f"; done
 
-        # AFTER THE INSTALL: every project it installed for, and every entry
-        # it placed in a project's `node_modules`, is still inside, and
-        # nothing appeared beside the workspace. The checks above are what
-        # prevent it; this is what says so if one of them is ever wrong.
-        env -i PATH="$PATH" node "$checker" after "$root"
-        if [ "$(ls -A "$root/..")" != "$outside_before" ]; then
-          refuse "the install created or removed something beside the workspace"
-        fi
+        # AFTER THE INSTALL: `.git`, the runner's temp directory and the
+        # directories around the workspace are what they were, and every
+        # project the install installed for is still inside the workspace.
+        # The container is what makes this so; this is what says so if it
+        # ever does not.
+        env -i PATH="$PATH" node "$checker" after "$root" "$work/before.json" "${RUNNER_TEMP:-}" "$work"
+        chmod 755 "$work/empty"
+        rm -rf "$work"

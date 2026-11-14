@@ -59,6 +59,9 @@ Depends on yorkie#2352 and yorkie#2353. Source commit:
 - [x] Allow-list what the install is told: registry packages by integrity
       hash, registry or `workspace:` specifiers, a strict reader for the
       lockfile and the workspace file, a scrubbed environment for pnpm
+- [x] Contain the install: a container whose only writable mount is the
+      workspace, `.git` and trusted checkouts covered; manifests on an
+      allow-list of keys; a before/after record as the tripwire
 - [ ] Re-audit the install step before any move off pnpm 9
 - [ ] Open the PR; merge with the pipeline paused and drained
 - [ ] Watch the first live run of each arm: the toolchain action on a runner
