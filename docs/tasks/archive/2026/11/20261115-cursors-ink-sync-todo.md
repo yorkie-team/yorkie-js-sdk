@@ -46,4 +46,4 @@ two strokes into one. A tab that joined later started blank.
 - [x] README and header copy describe the new behaviour
 - [x] Verified in two browser windows, including a late joiner
 - [x] `pnpm verify:fast`
-- [ ] Archive this pair before the pull request merges
+- [x] Archive this pair before the pull request merges
