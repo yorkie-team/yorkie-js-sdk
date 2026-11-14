@@ -29,6 +29,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
@@ -3212,6 +3213,267 @@ test('a link whose target passes through another link is judged by where each st
         ),
       refusal(/pk\/proj resolves outside the workspace after the install/),
     );
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('every name is read as its bytes, and one that is not valid UTF-8 is refused', async (t) => {
+  // A NAME IS ITS BYTES. Listed the default way, a name that is not valid
+  // UTF-8 comes back with U+FFFD in place of what could not be decoded, and
+  // a path built from it names a different entry when it is handed back to
+  // the filesystem. So every check reads names and link targets as bytes,
+  // and refuses one that does not decode strictly to the same bytes — in the
+  // container before the install, in what the install left, and on the
+  // runner around it. A name whose bytes are valid is judged as itself,
+  // whatever characters it holds.
+  const base = realpathSync(
+    mkdtempSync(path.join(os.tmpdir(), 'agent-names-')),
+  );
+  // `name` is written one character per byte: '\xff' is the byte 0xff.
+  const at = (dir, ...names) =>
+    Buffer.concat([
+      Buffer.from(dir),
+      ...names.map((n) => Buffer.from(`/${n}`, 'latin1')),
+    ]);
+  // The bytes U+FFFD is written as: what a lossy reading puts in place of a
+  // byte it cannot decode, and a valid name of its own.
+  const FFFD = '\xef\xbf\xbd';
+  try {
+    const temp = path.join(base, '_temp');
+    mkdirSync(path.join(temp, 'agent-tools'), { recursive: true });
+    let n = 0;
+    const tree = (setup) => {
+      const dir = path.join(base, `t${++n}`, 'repo');
+      mkdirSync(path.join(dir, 'packages', 'sdk'), { recursive: true });
+      mkdirSync(path.join(dir, '.git'));
+      mkdirSync(path.join(dir, '.trusted-toolchain'));
+      setup(dir);
+      return dir;
+    };
+    const after = (dir) => installInputs.checkLinks(dir, { runnerTemp: temp });
+    const before = (dir) => installInputs.checkTree(dir);
+    const refusal = (message) => (e) =>
+      e instanceof installInputs.Refusal && message.test(e.message);
+    const NOT_UTF8 = /is not valid UTF-8/;
+
+    await t.test('a valid name is judged as itself', () => {
+      // U+FFFD written as real bytes is an ordinary name.
+      const fine = tree((d) => {
+        symlinkSync('packages/sdk', at(d, `x${FFFD}`));
+        mkdirSync(at(d, 'packages', FFFD));
+        symlinkSync(Buffer.from(`packages/${FFFD}`, 'latin1'), at(d, 'y'));
+      });
+      before(fine);
+      after(fine);
+      installInputs.takeSnapshot(fine, { runnerTemp: temp });
+      for (const [name, setup, message] of [
+        [
+          'U+FFFD as bytes, leading out',
+          (d) => {
+            symlinkSync('../../..', at(d, `x${FFFD}`));
+            symlinkSync('packages', at(d, 'x'));
+          },
+          /x\ufffd is a symbolic link/,
+        ],
+        [
+          // A decoder that drops a leading byte-order mark would judge `x`.
+          'a leading byte-order mark, leading out',
+          (d) => {
+            symlinkSync('../../..', at(d, '\xef\xbb\xbfx'));
+            symlinkSync('packages', at(d, 'x'));
+          },
+          /\ufeffx is a symbolic link/,
+        ],
+      ]) {
+        assert.throws(() => before(tree(setup)), refusal(message), name);
+        assert.throws(() => after(tree(setup)), refusal(message), name);
+      }
+    });
+
+    // Whether this filesystem holds a name that is not valid UTF-8 at all:
+    // ext4 does, APFS does not. Asked in a directory of its own: the
+    // record of the runner lists the names around each tree below.
+    let unheld = null;
+    mkdirSync(path.join(base, 'probe'));
+    try {
+      mkdirSync(at(base, 'probe', 'x\xff'));
+    } catch (err) {
+      unheld = err.code;
+    }
+
+    await t.test('a name that is not valid UTF-8 is refused', (st) => {
+      if (unheld !== null) {
+        st.skip(
+          `this filesystem refuses a name that is not valid UTF-8 (${unheld}); these rows run on Linux`,
+        );
+        return;
+      }
+      // Each beside a decoy: the entry a lossy reading would examine
+      // instead, of a shape every check passes.
+      for (const [name, setup] of [
+        [
+          'a link leading out',
+          (d) => {
+            symlinkSync('../../..', at(d, 'x\xff'));
+            symlinkSync('packages', at(d, `x${FFFD}`));
+          },
+        ],
+        [
+          'a surrogate written as bytes',
+          (d) => {
+            symlinkSync('../../..', at(d, 'x\xed\xa0\x80'));
+            symlinkSync('packages', at(d, `x${FFFD}${FFFD}${FFFD}`));
+          },
+        ],
+        [
+          'a directory holding what the tree may not',
+          (d) => {
+            mkdirSync(at(d, 'd\xff', 'node_modules'), { recursive: true });
+            mkdirSync(at(d, 'd\xff', '.git'));
+            writeFileSync(at(d, 'd\xff', '.npmrc'), 'x=1\n');
+            symlinkSync('../../../..', at(d, 'd\xff', 'up'));
+            mkdirSync(at(d, `d${FFFD}`));
+          },
+        ],
+        [
+          'a link whose target is not valid UTF-8',
+          (d) => {
+            mkdirSync(at(d, 'packages', `sdk${FFFD}`));
+            symlinkSync(Buffer.from('packages/sdk\xff', 'latin1'), at(d, 'x'));
+          },
+        ],
+      ]) {
+        assert.throws(
+          () => before(tree(setup)),
+          refusal(NOT_UTF8),
+          `before: ${name}`,
+        );
+        assert.throws(
+          () => after(tree(setup)),
+          refusal(NOT_UTF8),
+          `after: ${name}`,
+        );
+      }
+
+      // THE PROJECTS the workspace file makes, read before the install.
+      const projects = tree((d) => {
+        writeFileSync(path.join(d, 'pnpm-lock.yaml'), TREE.lockfile);
+        writeFileSync(path.join(d, 'pnpm-workspace.yaml'), TREE.workspace);
+        writeFileSync(path.join(d, 'package.json'), json(TREE.root));
+        writeFileSync(
+          path.join(d, 'packages', 'sdk', 'package.json'),
+          json(TREE.sdk),
+        );
+        mkdirSync(at(d, 'packages', 'p\xff'));
+        writeFileSync(at(d, 'packages', 'p\xff', 'package.json'), '{}\n');
+        mkdirSync(at(d, 'packages', `p${FFFD}`));
+      });
+      assert.throws(
+        () => installInputs.checkInputs(projects),
+        refusal(NOT_UTF8),
+      );
+
+      // WHAT THE INSTALL LEFT in `node_modules`.
+      const installed = tree((d) => {
+        writeFileSync(path.join(d, 'pnpm-lock.yaml'), TREE.lockfile);
+        mkdirSync(path.join(d, 'node_modules'));
+        symlinkSync('../../..', at(d, 'node_modules', 'dep\xff'));
+        symlinkSync('../packages/sdk', at(d, 'node_modules', `dep${FFFD}`));
+      });
+      assert.throws(
+        () => installInputs.checkInstalled(installed),
+        refusal(NOT_UTF8),
+      );
+      const scoped = tree((d) => {
+        writeFileSync(path.join(d, 'pnpm-lock.yaml'), TREE.lockfile);
+        mkdirSync(path.join(d, 'node_modules', '@s'), { recursive: true });
+        symlinkSync('../../../..', at(d, 'node_modules', '@s', 'dep\xff'));
+        symlinkSync(
+          '../../packages/sdk',
+          at(d, 'node_modules', '@s', `dep${FFFD}`),
+        );
+      });
+      assert.throws(
+        () => installInputs.checkInstalled(scoped),
+        refusal(NOT_UTF8),
+      );
+
+      // A LINK THE WALK PASSES THROUGH is read as its bytes too.
+      const through = tree((d) => {
+        mkdirSync(path.join(d, 'packages', `sdk${FFFD}`, 'in'), {
+          recursive: true,
+        });
+        symlinkSync(Buffer.from('packages/sdk\xff', 'latin1'), at(d, 'l'));
+      });
+      assert.match(
+        installInputs.linkStrays(through, path.join(through, 'x'), 'l/in'),
+        NOT_UTF8,
+      );
+
+      // THE RECORD ON THE RUNNER. A file the install could rewrite, beside
+      // a decoy that stays as it was: in `.git`, in the runner's temp
+      // directory, and beside the workspace.
+      // A link there, whose target the install could change.
+      const linked = tree((d) =>
+        symlinkSync(Buffer.from('t\xff', 'latin1'), at(d, '.git', 'l')),
+      );
+      assert.throws(
+        () => {
+          const was = installInputs.takeSnapshot(linked, { runnerTemp: temp });
+          rmSync(path.join(linked, '.git', 'l'));
+          symlinkSync(Buffer.from('t\xfe', 'latin1'), at(linked, '.git', 'l'));
+          installInputs.compareSnapshots(
+            was,
+            installInputs.takeSnapshot(linked, { runnerTemp: temp }),
+          );
+        },
+        refusal(NOT_UTF8),
+        '.git: a link',
+      );
+      // ...and the package-manager settings in the runner's home.
+      const home = path.join(base, 'home');
+      mkdirSync(home);
+      symlinkSync(Buffer.from('rc\xff', 'latin1'), path.join(home, '.npmrc'));
+      assert.throws(
+        () =>
+          installInputs.takeSnapshot(
+            tree(() => {}),
+            { runnerTemp: temp, home },
+          ),
+        refusal(NOT_UTF8),
+        'home',
+      );
+
+      for (const [name, place] of [
+        ['.git', (d) => path.join(d, '.git')],
+        ['the temp directory', () => path.join(base, `rt${n}`)],
+        ['beside the workspace', (d) => path.dirname(d)],
+      ]) {
+        let file;
+        const dir = tree((d) => {
+          const where = place(d);
+          mkdirSync(where, { recursive: true });
+          file = at(where, 'f\xff');
+          writeFileSync(file, 'one\n');
+          writeFileSync(at(where, `f${FFFD}`), 'one\n');
+        });
+        const runnerTemp = path.join(base, `rt${n}`);
+        mkdirSync(runnerTemp, { recursive: true });
+        assert.throws(
+          () => {
+            const was = installInputs.takeSnapshot(dir, { runnerTemp });
+            writeFileSync(file, 'rewritten\n');
+            installInputs.compareSnapshots(
+              was,
+              installInputs.takeSnapshot(dir, { runnerTemp }),
+            );
+          },
+          refusal(NOT_UTF8),
+          name,
+        );
+      }
+    });
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
