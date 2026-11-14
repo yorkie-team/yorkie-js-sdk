@@ -2,20 +2,24 @@
 2:"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/0067m07v7j9ej.js"
 3:I[76165,["$2"],"default"]
 4:I[47486,["$2"],"default"]
-8:I[61025,["$2"],"OutletBoundary"]
-9:"$Sreact.suspense"
-b:"ViewportBoundary"
-c:I[61025,["$2"],"$b"]
-e:"MetadataBoundary"
-f:I[61025,["$2"],"$e"]
-11:I[39777,["$2"],"default",1]
-:HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/3sbzkya8_91wb.css","style"]
-6:X
-7:[["children",{"s":"__PAGE__","h":512,"d":{"r":["$","$1","c",{"children":[["$","h1",null,{"children":"404 not found"}],null,["$","$L8",null,{"children":["$","$9",null,{"name":"Next.MetadataOutlet","children":"$@a"}]}]]}],"p":false,"v":null}}]]
-5:[["children",{"s":"/_not-found","h":512,"d":{"r":["$","$1","c",{"children":[null,["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],"p":false,"v":"$6"},"c":"$Q7"}]]
-0:{"P":null,"c":["","_not-found"],"q":"","i":false,"t":{"t":{"s":"","h":528,"d":{"r":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/3sbzkya8_91wb.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/0067m07v7j9ej.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","children":["$","body",null,{"children":["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[["$","h1",null,{"children":"404 not found"}],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]}]]}],"p":false,"v":null},"c":"$Q5"},"h":{"r":["$","$1","h",{"children":[["$","meta",null,{"name":"robots","content":"noindex"}],["$","$Lc",null,{"children":"$Ld"}],["$","$Lf",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$9",null,{"name":"Next.Metadata","children":"$L10"}]}],null]}],null]}],"p":false,"v":null}},"m":"$undefined","G":["$11",[["$","link","0",{"rel":"stylesheet","href":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/3sbzkya8_91wb.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]]],"S":true,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"Mb_SHqdv_8102ONmCrn7w"}
-6:C
-d:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
-12:I[6838,["$2"],"IconMark"]
-a:null
-10:[["$","title","0",{"children":"Next.js react-calendar example"}],["$","meta","1",{"name":"description","content":"example of yorkie-js-sdk with next.js & react-calendar"}],["$","link","2",{"rel":"icon","href":"./favicon.ico"}],["$","$L12","3",{}]]
+5:"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/2t_5bi-_2_e7m.js"
+6:I[63483,["$2","$5"],""]
+a:I[61025,["$2"],"OutletBoundary"]
+b:"$Sreact.suspense"
+d:"ViewportBoundary"
+e:I[61025,["$2"],"$d"]
+10:"MetadataBoundary"
+11:I[61025,["$2"],"$10"]
+13:I[39777,["$2"],"default",1]
+:HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/0acg5ndvxb1ig.css","style"]
+:HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/1-y8fcd_mgozo.css","style"]
+:HL["https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css","style"]
+8:X
+9:[["children",{"s":"__PAGE__","h":512,"d":{"r":["$","$1","c",{"children":[["$","main",null,{"className":"sjZXhG_main","children":["$","p",null,{"className":"sjZXhG_message","children":["Page not found. ",["$","$L6",null,{"href":"/","children":"Back to the calendar"}]]}]}],[["$","link","0",{"rel":"stylesheet","href":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/1-y8fcd_mgozo.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/2t_5bi-_2_e7m.js","async":true,"nonce":"$undefined"}]],["$","$La",null,{"children":["$","$b",null,{"name":"Next.MetadataOutlet","children":"$@c"}]}]]}],"p":false,"v":null}}]]
+7:[["children",{"s":"/_not-found","h":512,"d":{"r":["$","$1","c",{"children":[null,["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],"p":false,"v":"$8"},"c":"$Q9"}]]
+0:{"P":null,"c":["","_not-found"],"q":"","i":false,"t":{"t":{"s":"","h":528,"d":{"r":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/0acg5ndvxb1ig.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}],["$","script","script-0",{"src":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/0067m07v7j9ej.js","async":true,"nonce":"$undefined"}]],["$","html",null,{"lang":"en","children":[["$","head",null,{"children":["$","link",null,{"rel":"stylesheet","href":"https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"}]}],["$","body",null,{"children":["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[["$","main",null,{"className":"sjZXhG_main","children":["$","p",null,{"className":"sjZXhG_message","children":["Page not found. ",["$","$L6",null,{"href":"/","children":"Back to the calendar"}]]}]}],[["$","link","0",{"rel":"stylesheet","href":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/1-y8fcd_mgozo.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]]}]]}],"p":false,"v":null},"c":"$Q7"},"h":{"r":["$","$1","h",{"children":[["$","meta",null,{"name":"robots","content":"noindex"}],["$","$Le",null,{"children":"$Lf"}],["$","$L11",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$b",null,{"name":"Next.Metadata","children":"$L12"}]}],null]}],null]}],"p":false,"v":null}},"m":"$undefined","G":["$13",[["$","link","0",{"rel":"stylesheet","href":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/0acg5ndvxb1ig.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]]],"S":true,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"NSjltuK-fbmxgj5byTH5N"}
+8:C
+f:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
+14:I[6838,["$2"],"IconMark"]
+c:null
+12:[["$","title","0",{"children":"Scheduler · Yorkie"}],["$","meta","1",{"name":"description","content":"A shared calendar built with Yorkie and react-calendar"}],["$","link","2",{"rel":"icon","href":"/yorkie-js-sdk/examples/nextjs-scheduler/favicon.ico?favicon.18r0emja_-w59.ico","sizes":"64x64","type":"image/x-icon"}],["$","$L14","3",{}]]

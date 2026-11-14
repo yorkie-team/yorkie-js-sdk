@@ -1,4 +1,6 @@
-:HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/3sbzkya8_91wb.css","style"]
-:HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/1xwj-c-uiokvt.css","style"]
+:HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/0acg5ndvxb1ig.css","style"]
+:HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/1-y8fcd_mgozo.css","style"]
+:HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/0672vg2bjjqqo.css","style"]
+:HL["https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css","style"]
 1:[["children",{"s":"__PAGE__","h":160}]]
-0:{"b":"Mb_SHqdv_8102ONmCrn7w","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
+0:{"b":"NSjltuK-fbmxgj5byTH5N","t":{"t":{"s":"","h":80,"c":"$Q1"}}}

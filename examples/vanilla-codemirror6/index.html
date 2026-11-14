@@ -1,17 +1,42 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Yorkie + CodeMirror 6 Example</title>
-    <script type="module" crossorigin src="./assets/index-D80DbkV0.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-DOD19EHu.css">
+    <meta
+      name="description"
+      content="A CodeMirror 6 editor that several people edit at once, with each other's cursors, built on Yorkie."
+    />
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
+    <title>CodeMirror 6 · Yorkie</title>
+    <script type="module" crossorigin src="./assets/index-C2GlcByW.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-rnMSK4rO.css">
   </head>
   <body>
-    <div>
-      <span id="network-status"></span>
-      <span id="peers"></span>
-    </div>
-    <div id="editor"></div>
+    <header class="app-header">
+      <div>
+        <h1 class="app-title">CodeMirror 6</h1>
+        <p class="app-hint">
+          Edit together — open this page in
+          <a id="share-link" href="./" target="_blank">another tab</a> to see
+          changes and cursors sync.
+        </p>
+      </div>
+      <div class="app-meta">
+        <span id="network-status" class="status" data-state="connecting">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="status-text" role="status">Connecting…</span>
+        </span>
+        <ul id="peers" class="peers" aria-label="People in this document"></ul>
+      </div>
+    </header>
+    <main>
+      <p id="error" class="error" role="alert" hidden></p>
+      <div id="editor" class="editor"></div>
+    </main>
   </body>
 </html>

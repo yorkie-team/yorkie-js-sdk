@@ -1,17 +1,47 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Yorkie + ProseMirror Example</title>
-    <script type="module" crossorigin src="./assets/index-fDjcpYl1.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-CdtpSe3P.css">
+    <meta
+      name="description"
+      content="A ProseMirror editor that several people edit at once, with each other's cursors, built on Yorkie."
+    />
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
+    <title>ProseMirror · Yorkie</title>
+    <script type="module" crossorigin src="./assets/index-XajQb2d3.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BFhDEEpY.css">
   </head>
   <body>
-    <div id="status" class="status">Connecting...</div>
-    <div id="editor-wrapper" style="position: relative;">
-      <div id="editor"></div>
-      <div id="cursor-overlay"></div>
-    </div>
+    <header class="app-header">
+      <div>
+        <h1 class="app-title">ProseMirror</h1>
+        <p class="app-hint">
+          Edit together — open this page in
+          <a id="share-link" href="./" target="_blank">another tab</a> to see
+          changes and cursors sync.
+        </p>
+      </div>
+      <div class="app-meta">
+        <span id="network-status" class="status" data-state="connecting">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span class="status-text" role="status">Connecting…</span>
+        </span>
+        <ul id="peers" class="peers" aria-label="People in this document"></ul>
+      </div>
+    </header>
+    <main>
+      <p id="error" class="error" role="alert" hidden></p>
+      <!-- The binding draws remote cursors into the overlay, positioned
+           relative to the wrapper. -->
+      <div id="editor-wrapper" class="editor">
+        <div id="editor"></div>
+        <div id="cursor-overlay"></div>
+      </div>
+    </main>
   </body>
 </html>

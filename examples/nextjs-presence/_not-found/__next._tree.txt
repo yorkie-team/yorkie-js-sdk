@@ -1,4 +1,5 @@
-:HL["/yorkie-js-sdk/examples/nextjs-presence/_next/static/chunks/3u1sepo2jb1vd.css","style"]
+:HL["/yorkie-js-sdk/examples/nextjs-presence/_next/static/chunks/1o-r-5rzt5mhx.css","style"]
+:HL["https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css","style"]
 2:[["children",{"s":"__PAGE__","h":160}]]
 1:[["children",{"s":"/_not-found","h":96,"c":"$Q2"}]]
-0:{"b":"Khg94AmrwuzlpDNEgOGEm","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
+0:{"b":"2uPqIvRX_CjdpbHLL54h_","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
