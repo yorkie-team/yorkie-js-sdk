@@ -1,5 +1,28 @@
-import { useDocumentSelector } from '../hooks/useDocumentSelector';
+import { useEffect } from 'react';
+import { Counter as YorkieCounter, type JSONObject } from '@yorkie-js/react';
+import { useDocumentSelector, type Root } from '../hooks/useDocumentSelector';
 import { statusOf } from './status';
+
+/**
+ * `counterOf` returns the document's counter, first replacing a plain number
+ * left by an older version of this example with a Counter of the same value.
+ * Call it inside `update`.
+ */
+function counterOf(root: JSONObject<Root>): YorkieCounter {
+  if (typeof root.counter === 'number') {
+    root.counter = new YorkieCounter(root.counter);
+  }
+  return root.counter as YorkieCounter;
+}
+
+/**
+ * `countOf` reads the counter's value, whether it is a Counter or a number.
+ */
+function countOf(root: Root): number {
+  const { counter } = root;
+  if (counter === undefined) return 0;
+  return Number(typeof counter === 'number' ? counter : counter.getValue());
+}
 
 /**
  * `Message` replaces the counter with a title, a message and a reload button.
@@ -34,6 +57,12 @@ export function Counter() {
     }),
   );
   const status = statusOf(loading, error, connection);
+  const isNumber = !loading && typeof root.counter === 'number';
+
+  // Swap a counter left as a plain number for a Counter once it loads.
+  useEffect(() => {
+    if (isNumber) update((root) => void counterOf(root));
+  }, [isNumber, update]);
 
   if (status === 'full') {
     return (
@@ -56,14 +85,14 @@ export function Counter() {
     <section className="panel counter" id="counter" aria-live="polite">
       <h1 className="counter__label">Shared counter</h1>
       <p className="counter__value" id="counter-value">
-        {loading ? '–' : (root.counter ?? 0)}
+        {loading ? '–' : countOf(root)}
       </p>
       <button
         className="button"
         id="increment"
         type="button"
         disabled={status !== 'connected'}
-        onClick={() => update((root) => (root.counter += 1))}
+        onClick={() => update((root) => counterOf(root).increase(1))}
       >
         Increment
       </button>

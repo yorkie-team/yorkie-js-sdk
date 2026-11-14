@@ -1,12 +1,26 @@
-import yorkie, { StreamConnectionStatus } from '@yorkie-js/sdk';
+import yorkie, {
+  type Counter,
+  type JSONObject,
+  StreamConnectionStatus,
+} from '@yorkie-js/sdk';
 import { displayPeers, randomName, type PeerPresence } from './peer';
 import './index.css';
 
 const API_ADDR = import.meta.env.VITE_YORKIE_API_ADDR;
 
 // The server rejects an attach beyond the project's "Max Attachments Per
-// Document" with the Connect status `resource_exhausted` (code 8).
+// Document" with the Connect status `resource_exhausted` (code 8). The same
+// status also covers other limits, such as a document or change that is too
+// large, and the server attaches no Yorkie error code to this rejection, so
+// the message is the only way to tell them apart. A dedicated error code on
+// the server would make this check cleaner.
 const RESOURCE_EXHAUSTED = 8;
+const ATTACHMENT_LIMIT_MESSAGE = 'attachment limit exceeded';
+
+// Older versions of this example kept the count as a plain number, which
+// loses clicks when two clients increase it at the same time. A Counter adds
+// concurrent increases up instead.
+type Root = { counter: Counter | number };
 
 type Status = 'connecting' | 'connected' | 'offline' | 'error' | 'full';
 const statusLabels: Record<Status, string> = {
@@ -61,7 +75,36 @@ function showMessage(title: string, message: string) {
 }
 
 function isAttachmentLimitError(err: unknown): boolean {
-  return (err as { code?: unknown })?.code === RESOURCE_EXHAUSTED;
+  const { code, rawMessage } = (err ?? {}) as {
+    code?: unknown;
+    rawMessage?: unknown;
+  };
+  return (
+    code === RESOURCE_EXHAUSTED &&
+    typeof rawMessage === 'string' &&
+    rawMessage.includes(ATTACHMENT_LIMIT_MESSAGE)
+  );
+}
+
+/**
+ * `counterOf` returns the document's counter, first replacing a plain number
+ * left by an older version of this example with a Counter of the same value.
+ * Call it inside `doc.update`.
+ */
+function counterOf(root: JSONObject<Root>): Counter {
+  if (typeof root.counter === 'number') {
+    root.counter = new yorkie.Counter(root.counter);
+  }
+  return root.counter as Counter;
+}
+
+/**
+ * `countOf` reads the counter's value, whether it is a Counter or a number.
+ */
+function countOf(root: Root): number {
+  const { counter } = root;
+  if (counter === undefined) return 0;
+  return Number(typeof counter === 'number' ? counter : counter.getValue());
 }
 
 async function main() {
@@ -71,7 +114,7 @@ async function main() {
   });
   await client.activate();
 
-  const doc = new yorkie.Document<{ counter: number }, PeerPresence>(
+  const doc = new yorkie.Document<Root, PeerPresence>(
     'vanilla-document-limit',
     { enableDevtools: import.meta.env.DEV },
   );
@@ -92,18 +135,18 @@ async function main() {
   });
 
   doc.subscribe(() => {
-    counterValueElem.textContent = String(doc.getRoot().counter ?? 0);
+    counterValueElem.textContent = String(countOf(doc.getRoot()));
   });
 
   incrementBtn.addEventListener('click', () => {
     doc.update((root) => {
-      root.counter += 1;
+      counterOf(root).increase(1);
     }, 'increment counter');
   });
 
   try {
     await client.attach(doc, {
-      initialRoot: { counter: 0 },
+      initialRoot: { counter: new yorkie.Counter(0) },
       initialPresence: { username: randomName() },
     });
   } catch (err) {
@@ -120,7 +163,10 @@ async function main() {
     throw err;
   }
 
-  counterValueElem.textContent = String(doc.getRoot().counter ?? 0);
+  doc.update((root) => {
+    counterOf(root);
+  }, 'use a Counter for the counter');
+  counterValueElem.textContent = String(countOf(doc.getRoot()));
   displayPeers(peersElem, doc.getPresences(), client.getActorID()!);
 }
 

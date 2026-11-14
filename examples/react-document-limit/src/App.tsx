@@ -1,4 +1,8 @@
-import { YorkieProvider, DocumentProvider } from '@yorkie-js/react';
+import {
+  YorkieProvider,
+  DocumentProvider,
+  Counter as YorkieCounter,
+} from '@yorkie-js/react';
 import ExampleHeader from './components/ExampleHeader';
 import { Counter } from './components/Counter';
 import { LimitsInfo } from './components/LimitsInfo';
@@ -15,7 +19,7 @@ function App() {
     >
       <DocumentProvider
         docKey="react-document-limit"
-        initialRoot={{ counter: 0 }}
+        initialRoot={{ counter: new YorkieCounter(0) }}
         initialPresence={{ username }}
       >
         <ExampleHeader />

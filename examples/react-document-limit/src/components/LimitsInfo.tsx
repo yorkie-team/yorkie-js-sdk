@@ -7,8 +7,8 @@ export function LimitsInfo() {
       <h2 id="limits-title">What are document limits?</h2>
       <p>
         A Yorkie project can cap how many clients use one document at the same
-        time. Set the caps in the Yorkie Dashboard under your project's
-        Settings, in the Resources section. 0 means no limit.
+        time. On Yorkie Cloud, set the caps in the Dashboard under your
+        project's Settings, in the Resources section. 0 means no limit.
       </p>
       <dl>
         <dt>Max Attachments Per Document</dt>
@@ -26,8 +26,14 @@ export function LimitsInfo() {
       <h3>Try it</h3>
       <ol>
         <li>
-          In the Dashboard, set Max Attachments Per Document to 2 for the
-          project whose API key this page uses.
+          Set Max Attachments Per Document to 2 for the project whose API key
+          this page uses. On Yorkie Cloud, use the Dashboard. On a local server,
+          which the Dashboard can't see, log in with the CLI as the README shows
+          and run{' '}
+          <code>
+            yorkie project update default --max-attachments-per-document 2
+          </code>
+          .
         </li>
         <li>Keep this tab open and open two more tabs of this page.</li>
         <li>The third tab can't attach and shows "This document is full".</li>
