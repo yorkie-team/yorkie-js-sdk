@@ -23,23 +23,46 @@ Several also have real defects:
 
 - [x] Audit all examples (build, two-tab sync, 1280/390/iframe screenshots,
       console, code, README)
-- [ ] Shared look from the yorkie.dev design system ("The Shared Canvas"):
+- [x] Shared look from the yorkie.dev design system ("The Shared Canvas"):
       warm neutrals, orange accent, peer hues for collaborators, Pretendard
-- [ ] Same header in every app: name, what to try, an "open another tab"
+- [x] Same header in every app: name, what to try, an "open another tab"
       link, connection status as text, and peer avatars where the app has
       presence
-- [ ] Connecting, offline and error states; no `alert()` or `confirm()`
-- [ ] Fix the per-app defects listed above
-- [ ] Remove debug logs, dead code and Vite boilerplate; set real titles
+- [x] Connecting, offline and error states; no `alert()` or `confirm()`
+- [x] Fix the per-app defects listed above
+- [x] Remove debug logs, dead code and Vite boilerplate; set real titles
       and favicons
-- [ ] Rewrite every README in one shape; retake every thumbnail as a
+- [x] Rewrite every README in one shape; retake every thumbnail as a
       1200x750 `thumbnail.jpg`
-- [ ] Add root shortcut scripts for `react-page-view-counter` and
+- [x] Add root shortcut scripts for `react-page-view-counter` and
       `react-polling-playground`
-- [ ] `pnpm build:examples`, `pnpm lint:check`, two-tab sync check per app
+- [x] `pnpm build:examples`, `pnpm lint:check`, two-tab sync check per app
+
+## Review
+
+Three independent reviewers read the branch diff. They found these
+issues, all now fixed:
+
+- The revision editor cut emoji surrogate pairs and dropped IME input.
+- tldraw's throttled writer dropped changes.
+- Kanban drops brought back cards a peer had already deleted.
+- CodeMirror built a CSS string from a peer-controlled colour.
+- The limit check matched any ResourceExhausted error.
+- The yorkie.dev mobile page loaded a hidden second client.
 
 ## Out of scope
 
 - Package-level bugs found on the way (for example, `@yorkie-js/prosemirror`
   does not reposition remote cursors on resize). File these as issues.
 - yorkie.dev pages for the examples that are not listed there yet.
+- Server: `ErrTooManyAttachments` has no Yorkie error code, so the SDK's
+  `Code.ErrTooManyAttachments` branch never matches and apps must check the
+  message.
+- SDK: in `handleConnectError` the ResourceExhausted retry runs before the
+  limit-code checks, so those checks never run.
+- `@yorkie-js/prosemirror`: there is no ResizeObserver, labels use
+  `clientID.slice(-2)` with white text, and colours are assigned in arrival
+  order instead of coming from presence.
+- Kanban: two people moving the same card to different lists at once leave
+  two copies. Only a cross-array move or a flat data model avoids this.
+- tldraw 1.x is not StrictMode-safe and logs React 19 and zustand warnings.

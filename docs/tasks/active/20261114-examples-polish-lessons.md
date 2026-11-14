@@ -12,3 +12,12 @@
   homepage version bump. The live previews at
   `yorkie.dev/yorkie-js-sdk/examples/<name>/` are different: they redeploy
   on every merge to `main`.
+- A prefix/suffix diff over a JavaScript string works in UTF-16 code units
+  and can cut an emoji in half. Yorkie rejects such an edit. Move the cut
+  points off surrogate pairs before calling `Text.edit`.
+- Re-rendering a controlled textarea during IME composition drops the
+  composed syllable. Queue remote edits until `compositionend`.
+- `@react-hook/throttle` keeps only the last call's arguments. Collect
+  per-call diffs before throttling the write.
+- The smoke tests passed for every app. The issues above surfaced only in a
+  diff review against the SDK source.
