@@ -5,12 +5,15 @@ const strokeWidth = 6;
 // Fading ink disappears after this many frames (about two seconds).
 const maxTrail = 128;
 const splineStep = 0.019;
+// Ink is never stored, but a peer drawing for a long time would otherwise
+// make every frame redraw more and more points. Past this many points per
+// author, the oldest strokes are dropped first.
+const maxPoints = 2000;
 
 /**
  * `getSplinePoint` calculates a point on a Catmull-Rom spline.
  */
-function getSplinePoint(pts, t) {
-  const [p0, p1, p2, p3] = pts;
+function getSplinePoint(p0, p1, p2, p3, t) {
   const t2 = t * t,
     t3 = t2 * t;
   return {
@@ -38,6 +41,18 @@ function distToSegment(px, py, ax, ay, bx, by) {
   const ab2 = abx * abx + aby * aby || 1;
   const t = Math.min(1, Math.max(0, ((px - ax) * abx + (py - ay) * aby) / ab2));
   return Math.hypot(px - (ax + t * abx), py - (ay + t * aby));
+}
+
+/**
+ * `capPoints` drops the oldest points until `strokes` holds at most
+ * `maxPoints`, removing whole strokes before trimming the newest one.
+ */
+function capPoints(strokes) {
+  let total = strokes.reduce((sum, { points }) => sum + points.length, 0);
+  while (total > maxPoints && strokes.length > 1) {
+    total -= strokes.shift().points.length;
+  }
+  if (total > maxPoints) strokes[0].points.splice(0, total - maxPoints);
 }
 
 /**
@@ -94,6 +109,7 @@ export default function PenCursor({ tool, cursor, pointerDown, color }) {
         age: 0,
       });
     }
+    capPoints(strokesRef.current);
     lastRef.current = cursor;
   }, [cursor, tool, pointerDown, color]);
 
@@ -120,11 +136,22 @@ export default function PenCursor({ tool, cursor, pointerDown, color }) {
         h = window.innerHeight;
       ctx.clearRect(0, 0, w, h);
 
-      for (const stroke of strokesRef.current) {
+      // Forget strokes that have faded away, but keep the one still being
+      // drawn: new points are appended to the last stroke.
+      const strokes = strokesRef.current;
+      for (const stroke of strokes) {
         if (stroke.tool === 'fading') {
           stroke.points.forEach((p) => p.age++);
           stroke.points = stroke.points.filter((p) => p.age < maxTrail);
         }
+      }
+      strokesRef.current = strokes.filter(
+        (stroke, i) =>
+          stroke.points.length > 0 ||
+          (lastRef.current && i === strokes.length - 1),
+      );
+
+      for (const stroke of strokesRef.current) {
         const pts = stroke.points.map((p) => ({ x: p.x * w, y: p.y * h }));
         if (pts.length < 2) continue;
 
@@ -138,8 +165,12 @@ export default function PenCursor({ tool, cursor, pointerDown, color }) {
         ctx.moveTo(pts[0].x, pts[0].y);
         if (pts.length >= 4) {
           for (let i = 0; i <= pts.length - 4; i++) {
+            const p0 = pts[i],
+              p1 = pts[i + 1],
+              p2 = pts[i + 2],
+              p3 = pts[i + 3];
             for (let t = 0; t <= 1; t += splineStep) {
-              const sp = getSplinePoint(pts.slice(i, i + 4), t);
+              const sp = getSplinePoint(p0, p1, p2, p3, t);
               ctx.lineTo(sp.x, sp.y);
             }
           }
