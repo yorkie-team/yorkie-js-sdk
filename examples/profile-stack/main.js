@@ -68,11 +68,14 @@ const setStatus = (state) => {
 };
 
 // Names are typed by peers, so they only ever go in through `textContent`.
+// A peer may also send no name at all, which must not break the stack.
+const nameOf = (presence) => String(presence.name ?? '');
+
 const createAvatar = ({ clientID, presence }) => {
   const $avatar = document.createElement('span');
   $avatar.className = 'avatar';
   $avatar.style.setProperty('--peer', getPeerColor(clientID));
-  $avatar.textContent = presence.name.charAt(0).toUpperCase();
+  $avatar.textContent = nameOf(presence).charAt(0).toUpperCase() || '?';
   return $avatar;
 };
 
@@ -92,11 +95,11 @@ const render = () => {
   $meButton.title = 'You';
   $meButton.setAttribute(
     'aria-label',
-    `${me.presence.name} (you), change name`,
+    `${nameOf(me.presence)} (you), change name`,
   );
   const $meName = document.createElement('span');
   $meName.className = 'me-name';
-  $meName.textContent = me.presence.name;
+  $meName.textContent = nameOf(me.presence);
   const $meTag = document.createElement('span');
   $meTag.className = 'me-tag';
   $meTag.textContent = 'you';
@@ -112,8 +115,8 @@ const render = () => {
     const $button = document.createElement('button');
     $button.className = 'peer-button';
     $button.dataset.key = peer.clientID;
-    $button.title = peer.presence.name;
-    $button.setAttribute('aria-label', peer.presence.name);
+    $button.title = nameOf(peer.presence);
+    $button.setAttribute('aria-label', nameOf(peer.presence));
     $button.append(createAvatar(peer));
     $button.addEventListener('click', () => toggleBubble(peer.clientID));
     $item.append($button);
@@ -161,7 +164,7 @@ const createBubble = (people) => {
     const $row = document.createElement('li');
     $row.className = 'bubble-row';
     const $name = document.createElement('span');
-    $name.textContent = person.presence.name;
+    $name.textContent = nameOf(person.presence);
     $row.append(createAvatar(person), $name);
     $bubble.append($row);
   });
@@ -197,10 +200,15 @@ window.addEventListener('keydown', (event) => {
   }
 });
 
-// name dialog: a native <dialog> traps focus, closes on Escape and returns
-// focus to the button that opened it.
+// name dialog: a native <dialog> traps focus and closes on Escape. It returns
+// focus to the button that opened it, but a render while it was open may have
+// replaced that button, so focus your avatar again once it closes.
+$dialog.addEventListener('close', () => {
+  $stack.querySelector('[data-key="me"]')?.focus();
+});
+
 const openNameDialog = () => {
-  $nameInput.value = me.presence.name;
+  $nameInput.value = nameOf(me.presence);
   $nameError.hidden = true;
   $nameInput.removeAttribute('aria-invalid');
   $dialog.showModal();
