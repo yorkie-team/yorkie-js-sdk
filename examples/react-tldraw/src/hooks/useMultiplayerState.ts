@@ -118,27 +118,58 @@ export function useMultiplayerState(roomId: string) {
     }
   }, [app]);
 
-  // Write local changes to the document, at most every 60ms, as one change.
-  const onChangePage = useThrottleCallback(
+  // tldraw passes only the records each call changed, and the throttled
+  // flush below sees only the last call's arguments. So every call adds its
+  // records to these pending maps; a later value for the same ID wins, and
+  // `undefined` means the record was deleted.
+  const pendingShapes = useRef<Record<string, TDShape | undefined>>({});
+  const pendingBindings = useRef<Record<string, TDBinding | undefined>>({});
+  const pendingAssets = useRef<Record<string, TDAsset | undefined>>({});
+
+  // Write the pending records to the document as one change.
+  const writePending = useCallback(() => {
+    const doc = docRef.current;
+    const shapes = pendingShapes.current;
+    const bindings = pendingBindings.current;
+    const assets = pendingAssets.current;
+    const isEmpty = [shapes, bindings, assets].every(
+      (records) => Object.keys(records).length === 0,
+    );
+    if (!doc || isEmpty) return;
+
+    pendingShapes.current = {};
+    pendingBindings.current = {};
+    pendingAssets.current = {};
+    doc.update((root) => {
+      for (const [id, shape] of Object.entries(shapes)) {
+        updateRecord(root.shapes, id, shape);
+      }
+      for (const [id, binding] of Object.entries(bindings)) {
+        updateRecord(root.bindings, id, binding);
+      }
+      for (const [id, asset] of Object.entries(assets)) {
+        updateRecord(root.assets, id, asset);
+      }
+    });
+  }, []);
+
+  // The second argument is a rate in calls per second, not milliseconds:
+  // write at most 60 times a second.
+  const flushPage = useThrottleCallback(writePending, 60, false);
+
+  const onChangePage = useCallback(
     (
-      app: TldrawApp,
+      _app: TldrawApp,
       shapes: Record<string, TDShape | undefined>,
       bindings: Record<string, TDBinding | undefined>,
+      assets: Record<string, TDAsset | undefined>,
     ) => {
-      docRef.current?.update((root) => {
-        for (const [id, shape] of Object.entries(shapes)) {
-          updateRecord(root.shapes, id, shape);
-        }
-        for (const [id, binding] of Object.entries(bindings)) {
-          updateRecord(root.bindings, id, binding);
-        }
-        for (const asset of Object.values(app.assets)) {
-          if (asset.id) updateRecord(root.assets, asset.id, asset);
-        }
-      });
+      Object.assign(pendingShapes.current, shapes);
+      Object.assign(pendingBindings.current, bindings);
+      Object.assign(pendingAssets.current, assets);
+      flushPage();
     },
-    60,
-    false,
+    [flushPage],
   );
 
   // Share the cursor and selection through presence.
@@ -193,6 +224,9 @@ export function useMultiplayerState(roomId: string) {
       }),
       doc.subscribe((event) => {
         if (event.type === 'remote-change') {
+          // Write local edits still waiting for the next flush first, so
+          // replacing the canvas with the document does not drop them.
+          writePending();
           replacePageContent(app, doc);
         }
       }),
@@ -248,7 +282,7 @@ export function useMultiplayerState(roomId: string) {
       // in flight this is a no-op, and `setup` deactivates instead.
       client.deactivate().catch(() => {});
     };
-  }, [app, roomId]);
+  }, [app, roomId, writePending]);
 
   return {
     status,

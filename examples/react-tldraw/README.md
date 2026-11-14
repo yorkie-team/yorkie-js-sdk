@@ -9,6 +9,9 @@
 A shared whiteboard built with tldraw on a Yorkie Document: shapes and
 bindings live in the document root, while each person's cursor, name and
 selection travel through Presence. Undo and redo use the document's history.
+Edits are written up to 60 times a second, and each write is one history
+step, so undo after a drag steps back one write at a time rather than the
+whole drag.
 Add `?key=<name>` to the URL to draw on a separate canvas.
 
 <img width="500" alt="React tldraw" src="./thumbnail.jpg">
