@@ -1,4 +1,4 @@
-# Yorkie React TodoMVC Example
+# React TodoMVC
 
 <p>
     <a href="https://yorkie.dev/yorkie-js-sdk/examples/react-todomvc/" target="_blank">
@@ -6,29 +6,19 @@
     </a>
 </p>
 
-<img width="500" alt="React TodoMVC" src="thumbnail.jpg"/>
+The classic TodoMVC app on a shared Yorkie Document: the todo list is a
+`JSONArray` in the document root, and every action is applied with
+`doc.update`, so each change syncs to everyone who has the list open. Add
+`?key=<name>` to the URL to work on a separate list.
 
-## How to run demo
+<img width="500" alt="React TodoMVC" src="./thumbnail.jpg">
 
-At project root, run below command to start Yorkie server.
+## How to run
 
-```bash
-$ docker compose -f docker/docker-compose.yml up --build -d
-```
-
-Then install dependencies and run the demo.
-
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
-
-Now you can run the demo.
-
-```bash
-# In the root directory of the repository.
-$ pnpm react-todomvc dev
-
-# Or in the directory of the example.
-$ pnpm dev
-```
+1. Start the Yorkie server (from the repo root):
+   `docker compose -f docker/docker-compose.yml up --build -d`
+2. Install and build (from the repo root): `pnpm install` then `pnpm sdk build`
+   and `pnpm react build`
+3. `pnpm react-todomvc dev`
+4. Open the printed URL in two tabs (or two browsers), then add, complete or
+   double-click to edit a todo in one tab and watch the other follow.

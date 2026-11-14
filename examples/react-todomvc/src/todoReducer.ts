@@ -1,4 +1,3 @@
-// examples/react-todomvc/src/todoReducer.ts
 import { JSONArray } from '@yorkie-js/react';
 import { Todo } from './model';
 
@@ -38,21 +37,19 @@ export function todoReducer(root: TodoRoot, action: TodoAction): void {
 
     case 'EDITED_TODO': {
       const { id, text } = action.payload;
-      root.todos.forEach((todo) => {
-        if (todo.id === id) {
-          todo.text = text;
-        }
-      });
+      const todo = root.todos.find((todo) => todo.id === id);
+      if (todo) {
+        todo.text = text;
+      }
       break;
     }
 
     case 'COMPLETED_TODO': {
       const { id } = action.payload;
-      root.todos.forEach((todo) => {
-        if (todo.id === id) {
-          todo.completed = !todo.completed;
-        }
-      });
+      const todo = root.todos.find((todo) => todo.id === id);
+      if (todo) {
+        todo.completed = !todo.completed;
+      }
       break;
     }
 

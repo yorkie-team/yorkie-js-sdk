@@ -1,11 +1,12 @@
-import Header from './components/Header';
-import MainSection from './components/MainSection';
+import 'todomvc-app-css/index.css';
 import './App.css';
 
-import 'todomvc-app-css/index.css';
-import { useTodoReducer } from './useTodoReducer';
 import { JSONArray } from '@yorkie-js/react';
+import ExampleHeader, { type Status } from './ExampleHeader';
+import Header from './components/Header';
+import MainSection from './components/MainSection';
 import { Todo } from './model';
+import { useTodoReducer } from './useTodoReducer';
 
 const initialRoot = {
   todos: [
@@ -19,15 +20,38 @@ const initialRoot = {
  * `App` is the root component of the application.
  */
 export default function App() {
-  const { root, dispatch, loading, error } = useTodoReducer(initialRoot);
+  const { root, dispatch, connection, loading, error } =
+    useTodoReducer(initialRoot);
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
+  let status: Status = 'offline';
+  if (error) status = 'error';
+  else if (loading) status = 'connecting';
+  else if (connection === 'connected') status = 'connected';
 
   return (
-    <div className="App">
-      <Header dispatch={dispatch} />
-      <MainSection todos={root.todos} dispatch={dispatch} />
-    </div>
+    <>
+      <ExampleHeader title="React TodoMVC" status={status} />
+      <main className="page">
+        {error ? (
+          <p className="state-message" role="alert">
+            Couldn't reach the Yorkie server at{' '}
+            {import.meta.env.VITE_YORKIE_API_ADDR}. Check that it's running,
+            then reload.
+          </p>
+        ) : loading ? (
+          <p className="state-message">Loading the shared todo list…</p>
+        ) : (
+          <>
+            <section className="todoapp">
+              <Header dispatch={dispatch} />
+              <MainSection todos={root.todos} dispatch={dispatch} />
+            </section>
+            <footer className="info">
+              <p>Double-click to edit a todo</p>
+            </footer>
+          </>
+        )}
+      </main>
+    </>
   );
 }
