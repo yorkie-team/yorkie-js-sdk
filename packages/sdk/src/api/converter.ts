@@ -51,6 +51,7 @@ import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTTreePos } from './../document/crdt/tree';
 import {
+  InsertOrigin,
   RGATreeSplit,
   RGATreeSplitNode,
   RGATreeSplitNodeID,
@@ -555,6 +556,22 @@ function toOperation(operation: Operation): PbOperation {
           ? PbRestoreMode.RETOMBSTONE
           : PbRestoreMode.RESTORE;
     }
+    const origin = editOperation.getOrigin();
+    if (origin) {
+      // The left origin is the from position; send it only if it is not.
+      const from = editOperation.getFromPos().getAbsoluteID();
+      pbEditOperation.hasOrigin = true;
+      if (!origin.left.equals(from)) {
+        pbEditOperation.originLeft = toTextNodeID(origin.left);
+      }
+      if (origin.right) {
+        if (origin.right.equals(from)) {
+          pbEditOperation.originRightAtFrom = true;
+        } else {
+          pbEditOperation.originRight = toTextNodeID(origin.right);
+        }
+      }
+    }
     pbOperation.body.case = 'edit';
     pbOperation.body.value = pbEditOperation;
   } else if (operation instanceof StyleOperation) {
@@ -626,6 +643,15 @@ function toOperation(operation: Operation): PbOperation {
     pbTreeEditOperation.splitTickets = treeEditOperation
       .getSplitTickets()
       .map((ticket) => toTimeTicket(ticket)!);
+    // Only the right origin goes on the wire: the left one is recomputed
+    // from `from` on every replica.
+    const treeOrigin = treeEditOperation.getTreeOrigin();
+    if (treeOrigin) {
+      pbTreeEditOperation.hasOrigin = true;
+      if (treeOrigin.right) {
+        pbTreeEditOperation.originRight = toTreeNodeID(treeOrigin.right);
+      }
+    }
     pbOperation.body.case = 'treeEdit';
     pbOperation.body.value = pbTreeEditOperation;
   } else if (operation instanceof TreeStyleOperation) {
@@ -762,6 +788,22 @@ function toRGANodes(arr: CRDTArray): Array<PbRGANode> {
   return pbRGANodes;
 }
 
+// Bits of `TextNode.origin_flags`: an origin that points at a neighbour.
+const OriginLeftPrev = 1;
+const OriginLeftSelf = 2;
+const OriginRightNext = 4;
+const OriginRightPrev = 8;
+
+/**
+ * `endIDOf` returns the boundary right after the last character of a node.
+ */
+function endIDOf(node: RGATreeSplitNode<CRDTTextValue>): RGATreeSplitNodeID {
+  return RGATreeSplitNodeID.of(
+    node.getCreatedAt(),
+    node.getID().getOffset() + node.getContentLength(),
+  );
+}
+
 /**
  * `toTextNodes` converts the given model to Protobuf format.
  */
@@ -779,9 +821,51 @@ function toTextNodes(
   // tombstone), which no decoder could have resolved.
   const emitted = new Set<string>();
 
+  let prevNode: RGATreeSplitNode<CRDTTextValue> | undefined;
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = create(PbTextNodeSchema);
+    const origin = textNode.getOrigin();
+    if (origin) {
+      // Origins that point at a neighbour are written as flags, so a run
+      // typed forward costs no IDs past its first character.
+      let flags = 0;
+      pbTextNode.hasOrigin = true;
+      if (origin.left.equals(textNode.getID())) {
+        flags |= OriginLeftSelf;
+      } else if (prevNode && origin.left.equals(endIDOf(prevNode))) {
+        flags |= OriginLeftPrev;
+      } else {
+        pbTextNode.originLeft = toTextNodeID(origin.left);
+      }
+      if (origin.right) {
+        const next = textNode.getNext();
+        const prevRight = prevNode?.getOrigin()?.right;
+        if (next && origin.right.equals(next.getID())) {
+          flags |= OriginRightNext;
+        } else if (prevRight && origin.right.equals(prevRight)) {
+          flags |= OriginRightPrev;
+        } else {
+          pbTextNode.originRight = toTextNodeID(origin.right);
+        }
+      }
+      pbTextNode.originFlags = flags;
+    }
+    prevNode = textNode;
     pbTextNode.id = toTextNodeID(textNode.getID());
+    if (textNode.isSkeleton()) {
+      // A collected tombstone: no value, attributes, removal time or ledger
+      // (see `RGATreeSplit.purge`). Its ID, links and origins follow.
+      pbTextNode.skeletonLen = textNode.getSkeletonLength();
+      if (
+        textNode.getInsPrev() &&
+        emitted.has(textNode.getInsPrevID().toIDString())
+      ) {
+        pbTextNode.insPrevId = toTextNodeID(textNode.getInsPrevID());
+      }
+      emitted.add(textNode.getID().toIDString());
+      pbTextNodes.push(pbTextNode);
+      continue;
+    }
     pbTextNode.value = textNode.getValue().getContent();
     pbTextNode.removedAt = toTimeTicket(textNode.getRemovedAt());
     // The removal ledger beyond removed_at. A node whose removed_at says it
@@ -826,7 +910,7 @@ function toTreeNodesWhenEdit(nodes: Array<CRDTTreeNode>): Array<PbTreeNodes> {
   for (const node of nodes) {
     pbTreeNodesList.push(
       create(PbTreeNodesSchema, {
-        content: toTreeNodes(node),
+        content: toTreeNodes(node, false),
       }),
     );
   }
@@ -853,7 +937,10 @@ function toRHT(rht: RHT): { [key: string]: PbNodeAttr } {
 /**
  * `toTreeNodes` converts the given model to Protobuf format.
  */
-function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
+function toTreeNodes(
+  node: CRDTTreeNode,
+  withOrigins = true,
+): Array<PbTreeNode> {
   if (!node) {
     return [];
   }
@@ -867,11 +954,25 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
       depth,
     });
 
-    if (n.isText) {
+    if (n.isText && !n.skeleton) {
       pbTreeNode.value = n.value;
     }
     if (n.insPrevID) {
       pbTreeNode.insPrevId = toTreeNodeID(n.insPrevID);
+    }
+    // Origins and skeletons are snapshot state; edit contents get their
+    // origins from the operation on the receiving replica.
+    if (withOrigins && n.origin) {
+      pbTreeNode.hasOrigin = true;
+      if (n.origin.left) {
+        pbTreeNode.originLeft = toTreeNodeID(n.origin.left);
+      }
+      if (n.origin.right) {
+        pbTreeNode.originRight = toTreeNodeID(n.origin.right);
+      }
+    }
+    if (withOrigins && n.skeleton) {
+      pbTreeNode.skeletonLen = n.isText ? n.visibleSize : 1;
     }
     if (n.insNextID) {
       pbTreeNode.insNextId = toTreeNodeID(n.insNextID);
@@ -884,7 +985,7 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
       pbTreeNode.mergedAt = toTimeTicket(n.mergedAt);
     }
 
-    if (n.attrs) {
+    if (n.attrs && !n.skeleton) {
       pbTreeNode.attributes = toRHT(n.attrs);
     }
 
@@ -1358,6 +1459,17 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
     fromTextNodeID(pbTextNode.id!),
     textValue,
   );
+  if (pbTextNode.skeletonLen > 0) {
+    // A collected tombstone; see `RGATreeSplit.purge`.
+    if (pbTextNode.value || Object.keys(pbTextNode.attributes).length) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'text node skeleton must be empty',
+      );
+    }
+    textNode.toSkeleton(pbTextNode.skeletonLen, textValue);
+    return textNode;
+  }
   textNode.setRemovedAt(fromTimeTicket(pbTextNode.removedAt));
   if (pbTextNode.removalEvents.length) {
     // A rejected ledger is logged and dropped rather than thrown on, the same
@@ -1568,6 +1680,34 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
 
   node.removedAt = fromTimeTicket(pbTreeNode.removedAt);
 
+  if (pbTreeNode.hasOrigin) {
+    node.origin = {
+      left: pbTreeNode.originLeft
+        ? fromTreeNodeID(pbTreeNode.originLeft)
+        : undefined,
+      right: pbTreeNode.originRight
+        ? fromTreeNodeID(pbTreeNode.originRight)
+        : undefined,
+    };
+  }
+
+  if (pbTreeNode.skeletonLen > 0) {
+    // A skeleton is a collected tombstone: it has a removal ticket and
+    // nothing else to carry.
+    if (
+      !node.removedAt ||
+      pbTreeNode.value !== '' ||
+      pbAttrs.length ||
+      (!node.isText && pbTreeNode.skeletonLen !== 1)
+    ) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'invalid tree skeleton node',
+      );
+    }
+    node.setSkeleton(pbTreeNode.skeletonLen);
+  }
+
   return node;
 }
 
@@ -1660,9 +1800,25 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
           : 'restore';
     }
 
+    const fromPos = fromTextNodePos(pbEditOperation!.from!);
+    let origin: InsertOrigin | undefined;
+    if (pbEditOperation!.hasOrigin && pbEditOperation!.content) {
+      const from = fromPos.getAbsoluteID();
+      origin = {
+        left: pbEditOperation!.originLeft
+          ? fromTextNodeID(pbEditOperation!.originLeft)
+          : from,
+        right: pbEditOperation!.originRightAtFrom
+          ? from
+          : pbEditOperation!.originRight
+            ? fromTextNodeID(pbEditOperation!.originRight)
+            : undefined,
+      };
+    }
+
     return EditOperation.create(
       fromTimeTicket(pbEditOperation!.parentCreatedAt)!,
-      fromTextNodePos(pbEditOperation!.from!),
+      fromPos,
       fromTextNodePos(pbEditOperation!.to!),
       pbEditOperation!.content,
       attributes,
@@ -1671,6 +1827,7 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
       restoreSpans,
       restoreMode,
       retombstoneSpans,
+      origin,
     );
   } else if (pbOperation.body.case === 'style') {
     const pbStyleOperation = pbOperation.body.value;
@@ -1749,6 +1906,13 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
         (ticket) => fromTimeTicket(ticket)!,
       ),
     );
+    if (pbTreeEditOperation!.hasOrigin) {
+      treeEdit.setTreeOrigin({
+        right: pbTreeEditOperation!.originRight
+          ? fromTreeNodeID(pbTreeEditOperation!.originRight)
+          : undefined,
+      });
+    }
     return treeEdit;
   } else if (pbOperation.body.case === 'treeStyle') {
     const pbTreeStyleOperation = pbOperation.body.value;
@@ -1948,8 +2112,31 @@ function fromText<A extends Indexable>(
   // `findFloorNodePreferToLeft` would then compute an out-of-range offset.
   const decoded = new Map<string, RGATreeSplitNode<CRDTTextValue>>();
   let prev = rgaTreeSplit.getHead();
+  const nextRight: Array<RGATreeSplitNode<CRDTTextValue>> = [];
   for (const pbNode of pbText.nodes) {
     const current = rgaTreeSplit.insertAfter(prev, fromTextNode(pbNode));
+    if (pbNode.hasOrigin) {
+      const flags = pbNode.originFlags;
+      const id = current.getID();
+      const origin: InsertOrigin = {
+        left:
+          flags & OriginLeftSelf
+            ? id
+            : flags & OriginLeftPrev && prev !== rgaTreeSplit.getHead()
+              ? endIDOf(prev)
+              : pbNode.originLeft
+                ? fromTextNodeID(pbNode.originLeft)
+                : RGATreeSplitNodeID.of(InitialTimeTicket, 0),
+      };
+      if (flags & OriginRightPrev) {
+        origin.right = prev.getOrigin()?.right;
+      } else if (flags & OriginRightNext) {
+        nextRight.push(current);
+      } else if (pbNode.originRight) {
+        origin.right = fromTextNodeID(pbNode.originRight);
+      }
+      current.setOrigin(origin);
+    }
     if (pbNode.insPrevId) {
       const id = current.getID();
       const insPrevID = fromTextNodeID(pbNode.insPrevId);
@@ -1963,6 +2150,12 @@ function fromText<A extends Indexable>(
     }
     decoded.set(current.getID().toIDString(), current);
     prev = current;
+  }
+  // The next node does not exist yet when a node is decoded, so "right is
+  // the next node" is filled in once every node is in.
+  for (const node of nextRight) {
+    const origin = node.getOrigin()!;
+    node.setOrigin({ left: origin.left, right: node.getNext()?.getID() });
   }
   const text = new CRDTText<A>(rgaTreeSplit, fromTimeTicket(pbText.createdAt)!);
   text.setMovedAt(fromTimeTicket(pbText.movedAt));

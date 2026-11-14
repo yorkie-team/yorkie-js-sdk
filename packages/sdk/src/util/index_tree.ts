@@ -122,6 +122,21 @@ export function addSizeOfLeftSiblings<T extends IndexTreeNode<T>>(
 }
 
 /**
+ * `originFollowsSplitSource` reports whether `child` was inserted by origin
+ * right after `source`, an element that a split has cut into pieces. Its
+ * left origin then names the boundary after the whole of `source`.
+ */
+function originFollowsSplitSource(child: any, source: any): boolean {
+  const left = child.origin?.left;
+  return (
+    !!left &&
+    !source.isText &&
+    source.insNextID !== undefined &&
+    left.equals(source.id)
+  );
+}
+
+/**
  * `IndexTreeNode` is the node of IndexTree. It is used to represent the
  * document of text-based editors.
  */
@@ -678,6 +693,18 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
             (child as any).insPrevID !== undefined &&
             !(child as any).isText
           ) {
+            remaining.push(child);
+            continue;
+          }
+          // An insert placed by origin right after the element this split
+          // cut at the level below meant "after that element", whose end is
+          // now its last piece in the right partition. A replica that saw the
+          // insert first placed it there.
+          if (
+            offset > 0 &&
+            originFollowsSplitSource(child, allChildren[offset - 1])
+          ) {
+            boundaryReached = true;
             remaining.push(child);
             continue;
           }

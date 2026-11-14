@@ -238,7 +238,8 @@ function countTextTombstones(doc: Document<TextDoc>): number {
   const text = doc.getRootObject().get('k') as CRDTText;
   let count = 0;
   for (const node of text.getRGATreeSplit()) {
-    if (node.isRemoved()) {
+    // A collected tombstone stays as a skeleton; count the uncollected ones.
+    if (node.isRemoved() && !node.isSkeleton()) {
       count += 1;
     }
   }
@@ -252,7 +253,7 @@ function countTextTombstones(doc: Document<TextDoc>): number {
 function heldTombstoneSize(doc: Document<TextDoc>): DataSize {
   const text = doc.getRootObject().get('k') as CRDTText;
   for (const node of text.getRGATreeSplit()) {
-    if (node.isRemoved()) {
+    if (node.isRemoved() && !node.isSkeleton()) {
       assert.equal(node.getValue().getContent(), 'cd');
       return node.getDataSize();
     }

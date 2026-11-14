@@ -51,7 +51,8 @@ function assertMatchesRebuild(d: Document<TreeDoc>, msg: string): void {
 function tombstonesIn(d: Document<TreeDoc>): number {
   const tree = d.getRootObject().get('t') as unknown as CRDTTree;
   const walk = (node: CRDTTreeNode): number =>
-    (node.isRemoved ? 1 : 0) +
+    // A skeleton is a collected tombstone kept in place for placement.
+    (node.isRemoved && !node.skeleton ? 1 : 0) +
     (node.isText ? 0 : node.allChildren.reduce((s, c) => s + walk(c), 0));
   return walk(tree.getRoot());
 }

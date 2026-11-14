@@ -537,6 +537,135 @@ function restoreSpanKindAgrees(span: TreeRestoreSpan): boolean {
 }
 
 /**
+ * `TreeInsertOrigin` is the context a Tree insertion was made in, the Tree
+ * counterpart of `InsertOrigin`. Both sides are sibling boundaries inside one
+ * parent:
+ *  - `left` is the boundary the content was inserted after, in canonical
+ *    form: undefined for the start of the parent, the element's ID after an
+ *    element, and (createdAt, k) after character k-1 of a text insertion.
+ *  - `right` is the ID of the sibling immediately to the right of the caret,
+ *    tombstones and skeletons included, or undefined for the end of the
+ *    parent. Inside a text node it is the continuation (createdAt, k).
+ *
+ * A node without one (legacy content, element split products, reissued
+ * content) is placed by the createdAt-only RGA rule.
+ */
+export type TreeInsertOrigin = {
+  left?: CRDTTreeNodeID;
+  right?: CRDTTreeNodeID;
+
+  /**
+   * `parent` is the declared parent of an insertion being placed: what an
+   * absent `left` is the start of. Runtime only; a recorded node's parent is
+   * its `mergedFrom`, or the parent it sits in.
+   */
+  parent?: CRDTTreeNodeID;
+
+  /**
+   * `cut` marks the origin of an element split with no content: it resolves
+   * to the cut point (see `splitCutLeft`) rather than to an insertion slot.
+   * Runtime only.
+   */
+  cut?: boolean;
+
+  /**
+   * `vv` is the version vector of a remote edit being placed, undefined for
+   * a local one. Runtime only.
+   */
+  vv?: VersionVector;
+};
+
+/**
+ * `sameTreeBoundary` reports whether two left boundaries are the same, an
+ * absent one meaning the start of the parent.
+ */
+function sameTreeBoundary(a?: CRDTTreeNodeID, b?: CRDTTreeNodeID): boolean {
+  if (!a || !b) {
+    return !a && !b;
+  }
+  return a.equals(b);
+}
+
+/**
+ * `sameLeft` reports whether sibling `o` was inserted at the same left
+ * boundary as the insertion being placed. "The start of a parent" names a
+ * parent: a merge moves a parent's children into another one, so two absent
+ * lefts only match when they are the start of the same parent -- `o`'s
+ * `mergedFrom` when a merge moved it here, otherwise the parent it sits in.
+ */
+function sameLeft(
+  o: CRDTTreeNode,
+  parent: CRDTTreeNode,
+  origin: TreeInsertOrigin,
+): boolean {
+  if (o.origin!.left || origin.left) {
+    return sameTreeBoundary(o.origin!.left, origin.left);
+  }
+  if (!origin.parent) {
+    return true;
+  }
+  const own = o.mergedFrom ?? parent.id;
+  return own.equals(origin.parent);
+}
+
+/**
+ * `boundaryAfter` is the canonical boundary right after `node`.
+ */
+function boundaryAfter(node: CRDTTreeNode): CRDTTreeNodeID {
+  if (node.isText) {
+    return CRDTTreeNodeID.of(
+      node.id.getCreatedAt(),
+      node.id.getOffset() + node.visibleSize,
+    );
+  }
+  return node.id;
+}
+
+/**
+ * `isSplitProduct` reports whether `node` is the right half of an element
+ * split. The split logic keeps it next to the element it was split from, so
+ * a scan passes over it instead of stopping at it like a legacy node.
+ */
+function isSplitProduct(node: CRDTTreeNode): boolean {
+  return !node.isText && !!node.insPrevID;
+}
+
+/**
+ * `assignTreeOrigins` records origins on inserted content: the first
+ * top-level node gets the operation's origin, each later one continues after
+ * the previous, and descendants form a chain inside their own parent.
+ */
+function assignTreeOrigins(
+  contents: Array<CRDTTreeNode>,
+  origin: TreeInsertOrigin,
+): void {
+  let prev: CRDTTreeNode | undefined;
+  for (const content of contents) {
+    const left = prev ? boundaryAfter(prev) : origin.left;
+    content.origin = { left, right: origin.right };
+    assignChildOrigins(content);
+    prev = content;
+  }
+}
+
+/**
+ * `assignChildOrigins` chains the descendants of inserted `node` inside
+ * their own parents: the first child starts its parent and each later one
+ * continues after the previous, with no right origin.
+ */
+function assignChildOrigins(node: CRDTTreeNode): void {
+  if (node.isText) {
+    return;
+  }
+  let prev: CRDTTreeNode | undefined;
+  for (const child of node.allChildren) {
+    child.origin = { left: prev ? boundaryAfter(prev) : undefined };
+    assignChildOrigins(child);
+    prev = child;
+  }
+}
+
+/**
  * `CRDTTreeNode` is a node of CRDTTree. It includes the logical clock and
  * links to other nodes to resolve conflicts.
  */
@@ -586,6 +715,23 @@ export class CRDTTreeNode
    * `nodeMapByID` on every position resolution) would be too expensive.
    */
   mergedInto?: CRDTTreeNodeID;
+
+  /**
+   * `origin` is the insertion context recorded when this node was inserted
+   * (see `TreeInsertOrigin`), or undefined for a node placed by the
+   * createdAt-only rule. Never mutated after it is set.
+   */
+  origin?: TreeInsertOrigin;
+
+  /**
+   * `skeleton` marks a tombstone whose garbage collection has run. It stays
+   * in its parent's child list so origins that name it, and the sibling
+   * windows the placement rule scans, look the same on replicas that
+   * collected it and on replicas that did not. A text skeleton drops its
+   * value but keeps its length (`visibleSize`) and so its ID range; an
+   * element skeleton drops its attributes and its removed subtree.
+   */
+  skeleton = false;
 
   _value = '';
 
@@ -656,7 +802,25 @@ export class CRDTTreeNode
     clone.mergedFrom = this.mergedFrom;
     clone.mergedAt = this.mergedAt;
     clone.mergedInto = this.mergedInto;
+    clone.origin = this.origin;
+    clone.skeleton = this.skeleton;
     return clone;
+  }
+
+  /**
+   * `setSkeleton` marks this node as a collected tombstone. `length` is the
+   * UTF-16 length a text skeleton covers and is ignored for an element. Used
+   * when decoding a snapshot, on a node built with an empty value.
+   */
+  public setSkeleton(length: number): void {
+    this.skeleton = true;
+    if (this.isText) {
+      this._value = '';
+      this.visibleSize = length;
+      this.totalSize = length;
+    } else {
+      this.attrs = undefined;
+    }
   }
 
   /**
@@ -736,6 +900,10 @@ export class CRDTTreeNode
       node.mergedFrom = undefined;
       node.mergedAt = undefined;
       node.mergedInto = undefined;
+      // Origins and the skeleton mark are engine state too: `edit` assigns
+      // origins to inserted content itself.
+      node.origin = undefined;
+      node.skeleton = false;
     });
   }
 
@@ -786,6 +954,11 @@ export class CRDTTreeNode
    * `remove` marks the node as removed.
    */
   remove(removedAt: TimeTicket): boolean {
+    if (this.skeleton) {
+      // Collected: a removal has nothing left to change, as when the node
+      // was purged.
+      return false;
+    }
     if (!this.removedAt) {
       this.removedAt = removedAt;
       // NOTE(hackerwins): Decrease only visibleSize because
@@ -820,6 +993,7 @@ export class CRDTTreeNode
     }
     this.removedAt = undefined;
     this.mergedInto = undefined;
+    this.skeleton = false;
     this.updateAncestorsSize(this.paddedSize());
   }
 
@@ -866,9 +1040,18 @@ export class CRDTTreeNode
     issueTimeTicket?: () => TimeTicket,
     versionVector?: VersionVector,
   ): [CRDTTreeNode | undefined, DataSize] {
-    const [split, diff] = this.isText
-      ? this.splitText(offset, this.id.getOffset())
-      : this.splitElement(offset, issueTimeTicket!, versionVector);
+    const [split, diff] =
+      this.isText && this.skeleton
+        ? this.splitSkeletonText(offset)
+        : this.isText
+          ? this.splitText(offset, this.id.getOffset())
+          : this.splitElement(offset, issueTimeTicket!, versionVector);
+
+    if (split && this.isText && this.origin) {
+      // The right piece continues the same insertion: its left origin is the
+      // boundary after the left piece, and it shares the right origin.
+      split.origin = { left: split.id, right: this.origin.right };
+    }
 
     if (split) {
       split.insPrevID = this.id;
@@ -929,12 +1112,38 @@ export class CRDTTreeNode
       // The piece was never live, so its size goes straight to docSize.gc
       // when the pair is registered; report a zero diff to the caller
       // (which accounts diffs to docSize.live).
+      if (split.skeleton) {
+        // Split off a collected tombstone: already out of every ledger.
+        return [split, { data: 0, meta: 0 }];
+      }
       if (split.removedAt) {
         tree.registerPendingGCPair(split, diff);
         return [split, { data: 0, meta: 0 }];
       }
     }
     return [split, diff];
+  }
+
+  /**
+   * `splitSkeletonText` splits the ID range of a text skeleton, which has no
+   * value to cut.
+   */
+  private splitSkeletonText(
+    offset: number,
+  ): [CRDTTreeNode | undefined, DataSize] {
+    const diff = { data: 0, meta: 0 };
+    const length = this.visibleSize;
+    if (offset <= 0 || offset >= length) {
+      return [undefined, diff];
+    }
+    const right = this.cloneText(offset + this.id.getOffset());
+    right.skeleton = true;
+    right.visibleSize = length - offset;
+    right.totalSize = length - offset;
+    this.visibleSize = offset;
+    this.totalSize = offset;
+    this.parent!.insertAfterInternal(right, this);
+    return [right, diff];
   }
 
   /**
@@ -960,7 +1169,7 @@ export class CRDTTreeNode
     tombstoneKnown: boolean,
   ): boolean {
     // NOTE(sigmaith): Skip if the node's creation was not visible to this operation.
-    if (!creationKnown) {
+    if (!creationKnown || this.skeleton) {
       return false;
     }
 
@@ -981,6 +1190,10 @@ export class CRDTTreeNode
    * as `RGATreeSplitNode.canStyle`, the same way — see the contract there.
    */
   public canStyle(versionVector?: VersionVector): boolean {
+    if (this.skeleton) {
+      // Collected: no attributes to style, as a purged node had none.
+      return false;
+    }
     return !this.isText && ticketKnown(versionVector, this.getCreatedAt());
   }
 
@@ -2766,6 +2979,420 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `canonicalLeft` resolves the left origin of an insertion at `pos`:
+   * undefined at the start of the parent, otherwise the boundary after the
+   * left sibling. An element anchor's offset in a CRDTTreePos is not
+   * canonical (`toTreePos` adds the child index to it), so the element's own
+   * ID is used instead.
+   */
+  public canonicalLeft(
+    pos: CRDTTreePos,
+  ): [CRDTTreeNodeID | undefined, boolean] {
+    let parent: CRDTTreeNode;
+    let left: CRDTTreeNode;
+    try {
+      [parent, left] = pos.toTreeNodePair(this);
+    } catch {
+      return [undefined, false];
+    }
+    if (parent === left) {
+      return [undefined, true];
+    }
+    if (left.isText) {
+      return [pos.getLeftSiblingID(), true];
+    }
+    return [left.id, true];
+  }
+
+  /**
+   * `localTreeOrigin` returns the origin a local insert at `pos` records. It
+   * must be called before the edit runs.
+   */
+  public localTreeOrigin(pos: CRDTTreePos): TreeInsertOrigin | undefined {
+    let parent: CRDTTreeNode;
+    let left: CRDTTreeNode;
+    try {
+      [parent, left] = pos.toTreeNodePair(this);
+    } catch {
+      return;
+    }
+    const origin: TreeInsertOrigin = {};
+    if (parent === left) {
+      const first = parent.allChildren[0];
+      if (first) {
+        origin.right = first.id;
+      }
+      return origin;
+    }
+    const realParent = left.parent ?? parent;
+    if (left.isText) {
+      origin.left = pos.getLeftSiblingID();
+      const k = pos.getLeftSiblingID().getOffset();
+      const start = left.id.getOffset();
+      if (k > start && k < start + left.visibleSize) {
+        // Inside the text piece: the next character continues it.
+        origin.right = CRDTTreeNodeID.of(left.id.getCreatedAt(), k);
+        return origin;
+      }
+    } else {
+      origin.left = left.id;
+    }
+    const siblings = realParent.allChildren;
+    const next = siblings[siblings.indexOf(left) + 1];
+    if (next) {
+      origin.right = next.id;
+    }
+    return origin;
+  }
+
+  /**
+   * `originLeftNode` resolves a canonical left boundary to the node that
+   * ends at it, or undefined for the start of the parent or a node no longer
+   * present.
+   */
+  private originLeftNode(id?: CRDTTreeNodeID): CRDTTreeNode | undefined {
+    if (!id) {
+      return;
+    }
+    const node = this.findFloorNode(id);
+    if (!node || !node.isText || id.getOffset() === 0) {
+      return node;
+    }
+    return this.findFloorNode(
+      CRDTTreeNodeID.of(id.getCreatedAt(), id.getOffset() - 1),
+    );
+  }
+
+  /**
+   * `originRightIn` returns the index in `children` of the piece that starts
+   * at `id`, splitting a text piece that covers it, or -1 when it is not a
+   * child of this parent (the end of the parent, or moved away by a split or
+   * merge). It returns the children again, as a split reshapes them.
+   */
+  private originRightIn(
+    children: Array<CRDTTreeNode>,
+    from: number,
+    id: CRDTTreeNodeID | undefined,
+    diff: DataSize,
+  ): [number, Array<CRDTTreeNode>] {
+    if (!id) {
+      return [-1, children];
+    }
+    let node = this.findFloorNode(id);
+    if (!node) {
+      return [-1, children];
+    }
+    const start = node.id.getOffset();
+    if (
+      node.isText &&
+      start < id.getOffset() &&
+      id.getOffset() < start + node.visibleSize
+    ) {
+      const [, splitDiff] = node.split(this, id.getOffset() - start);
+      addDataSizes(diff, splitDiff);
+      node = this.findFloorNode(id);
+      if (!node || !node.parent) {
+        return [-1, children];
+      }
+      children = node.parent.allChildren;
+    }
+    for (let i = from; i < children.length; i++) {
+      if (children[i] === node) {
+        return [i, children];
+      }
+    }
+    return [-1, children];
+  }
+
+  /**
+   * `integrateTree` returns the node a new insertion goes after among the
+   * children of `parent`, starting from `left` (`parent` itself for the
+   * start), using both origins: the YjsMod / FugueMax rule
+   * `RGATreeSplit.integrate` applies to Text, over one parent's child list.
+   * Only siblings between the left boundary and the right origin can be
+   * concurrent with the insertion.
+   */
+  private integrateTree(
+    parent: CRDTTreeNode,
+    left: CRDTTreeNode,
+    origin: TreeInsertOrigin,
+    editedAt: TimeTicket,
+    diff: DataSize,
+  ): CRDTTreeNode {
+    let children = parent.allChildren;
+    let start = 0;
+    if (left !== parent) {
+      start = children.indexOf(left) + 1;
+      if (start === 0) {
+        return left;
+      }
+    }
+
+    const [rightIdx, reshaped] = this.originRightIn(
+      children,
+      start,
+      origin.right,
+      diff,
+    );
+    children = reshaped;
+    if (left !== parent) {
+      // A split of the right origin may have reshaped the children.
+      start = children.indexOf(left) + 1;
+    }
+    if (rightIdx === start) {
+      return left;
+    }
+    if (rightIdx < 0) {
+      const tail = this.unknownSplitTail(parent, origin.vv);
+      if (tail.length) {
+        children = [...children, ...tail];
+      }
+      return this.integrateTreeOpen(
+        parent,
+        left,
+        children,
+        start,
+        origin,
+        editedAt,
+      );
+    }
+
+    const order = new Map<CRDTTreeNode, number>();
+    order.set(left, start - 1);
+    for (let i = start; i <= rightIdx; i++) {
+      order.set(children[i], i);
+    }
+    const right = children[rightIdx];
+    const compareRight = (id?: CRDTTreeNodeID): number => {
+      if (!id) {
+        return 1;
+      }
+      if (id.equals(right.id)) {
+        return 0;
+      }
+      const n = this.findFloorNode(id);
+      const idx = n ? order.get(n) : undefined;
+      if (idx === undefined || n === left || n === right) {
+        return 1;
+      }
+      return idx < rightIdx ? -1 : 1;
+    };
+
+    const actor = editedAt.getActorID();
+    let dest = left;
+    let prev = left;
+    let scanning = false;
+    for (let i = start; ; i++) {
+      if (!scanning) {
+        dest = prev;
+      }
+      if (i >= rightIdx) {
+        break;
+      }
+      const o = children[i];
+      prev = o;
+      if (!o.origin) {
+        if (isSplitProduct(o)) {
+          continue;
+        }
+        break;
+      }
+      if (sameLeft(o, parent, origin)) {
+        const cmp = compareRight(o.origin.right);
+        if (cmp < 0) {
+          scanning = true;
+        } else if (cmp === 0) {
+          if (actor < o.id.getCreatedAt().getActorID()) {
+            return dest;
+          }
+          scanning = false;
+        } else {
+          scanning = false;
+        }
+        continue;
+      }
+      const oLeft = this.originLeftNode(o.origin.left);
+      const at = oLeft ? order.get(oLeft) : undefined;
+      if (at === undefined || at >= i) {
+        break;
+      }
+    }
+    return dest;
+  }
+
+  /**
+   * `integrateTreeOpen` places an insertion that has no right origin in
+   * this parent: the end of the parent, or a sibling a concurrent split or
+   * merge moved elsewhere.
+   */
+  private integrateTreeOpen(
+    parent: CRDTTreeNode,
+    left: CRDTTreeNode,
+    children: Array<CRDTTreeNode>,
+    start: number,
+    origin: TreeInsertOrigin,
+    editedAt: TimeTicket,
+  ): CRDTTreeNode {
+    const actor = editedAt.getActorID();
+    const seen = new Set<CRDTTreeNode>([left]);
+    let dest = left;
+    let prev = left;
+    let scanning = false;
+    for (let i = start; ; i++) {
+      if (!scanning) {
+        dest = prev;
+      }
+      if (i >= children.length) {
+        break;
+      }
+      const o = children[i];
+      if (origin.right && o.id.equals(origin.right)) {
+        // The scan crossed into a split product and reached the right
+        // origin there: the window ends at it.
+        break;
+      }
+      prev = o;
+      seen.add(o);
+      if (!o.origin) {
+        if (isSplitProduct(o)) {
+          continue;
+        }
+        break;
+      }
+      if (sameLeft(o, parent, origin)) {
+        // A right origin that is not a child of this parent -- the end, or
+        // a sibling a concurrent element split moved into the new element --
+        // bounds nothing here. Two such siblings are equally open, whichever
+        // replica saw the split first, so they tie.
+        if (this.rightBoundsIn(o, o.origin.right, origin.right)) {
+          scanning = true;
+          continue;
+        }
+        if (actor < o.id.getCreatedAt().getActorID()) {
+          return dest;
+        }
+        scanning = false;
+        continue;
+      }
+      const oLeft = this.originLeftNode(o.origin.left);
+      if (!oLeft || !seen.has(oLeft)) {
+        break;
+      }
+    }
+    return dest;
+  }
+
+  /**
+   * `rightBoundsIn` reports whether sibling `o`'s right origin bounds it
+   * inside `o`'s own parent when the inserting node's right origin does not.
+   */
+  private rightBoundsIn(
+    o: CRDTTreeNode,
+    right?: CRDTTreeNodeID,
+    mine?: CRDTTreeNodeID,
+  ): boolean {
+    if (!right || (mine && right.equals(mine))) {
+      return false;
+    }
+    const node = this.findFloorNode(right);
+    return !!node && !!node.parent && !!o.parent && node.parent === o.parent;
+  }
+
+  /**
+   * `unknownSplitTail` returns the children of the split products of
+   * `parent` the edit did not know about, in order. A split the author had
+   * not seen cut the parent after the author's caret had already chosen its
+   * place, so for that edit the parent's end is still the end of the last
+   * such product.
+   */
+  private unknownSplitTail(
+    parent: CRDTTreeNode,
+    vv?: VersionVector,
+  ): Array<CRDTTreeNode> {
+    const tail: Array<CRDTTreeNode> = [];
+    if (!vv || vv.size() === 0 || parent.isText) {
+      return tail;
+    }
+    for (let id = parent.insNextID; id; ) {
+      const sib = this.findFloorNode(id);
+      if (
+        !sib ||
+        !sib.id.equals(id) ||
+        sib.isText ||
+        ticketKnown(vv, sib.id.getCreatedAt())
+      ) {
+        break;
+      }
+      tail.push(...sib.allChildren);
+      id = sib.insNextID;
+    }
+    return tail;
+  }
+
+  /**
+   * `splitCutLeft` returns the node an element split cuts after: the sibling
+   * right before the split's right origin. Every sibling between the
+   * split's left boundary and its right origin is concurrent with the
+   * split, and the insertions among them were ordered by origin relative to
+   * that right origin, so cutting right before it keeps each of them on the
+   * side the insert rule puts it on a replica that saw the split first. A
+   * right origin that is no longer a child here (the end, or moved by a
+   * concurrent split) cuts at the end.
+   */
+  private splitCutLeft(
+    parent: CRDTTreeNode,
+    left: CRDTTreeNode,
+    origin: TreeInsertOrigin,
+    diff: DataSize,
+  ): CRDTTreeNode {
+    let children = parent.allChildren;
+    let start = 0;
+    if (left !== parent) {
+      start = children.indexOf(left) + 1;
+      if (start === 0) {
+        return left;
+      }
+    }
+    const [rightIdx, reshaped] = this.originRightIn(
+      children,
+      start,
+      origin.right,
+      diff,
+    );
+    children = reshaped;
+    if (left !== parent) {
+      start = children.indexOf(left) + 1;
+    }
+    if (rightIdx > start) {
+      return children[rightIdx - 1];
+    }
+    if (rightIdx === start) {
+      return left;
+    }
+    if (children.length > start) {
+      return children[children.length - 1];
+    }
+    return left;
+  }
+
+  /**
+   * `placeByOrigin` resolves where an edit with an origin goes among the
+   * children of `parent` after `left`: the insertion slot, or for a split
+   * with no content the cut point.
+   */
+  private placeByOrigin(
+    parent: CRDTTreeNode,
+    left: CRDTTreeNode,
+    origin: TreeInsertOrigin,
+    editedAt: TimeTicket,
+    diff: DataSize,
+  ): CRDTTreeNode {
+    return origin.cut
+      ? this.splitCutLeft(parent, left, origin, diff)
+      : this.integrateTree(parent, left, origin, editedAt, diff);
+  }
+
+  /**
    * `findNodesAndSplitText` finds `TreePos` of the given `CRDTTreeNodeID` and
    * splits nodes if the position is in the middle of a text node.
    *
@@ -2786,6 +3413,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     pos: CRDTTreePos,
     editedAt?: TimeTicket,
     boundary: 'insert' | 'range' = 'insert',
+    origin?: TreeInsertOrigin,
   ): [TreeNodePair, DataSize] {
     const diff = { data: 0, meta: 0 };
 
@@ -2825,6 +3453,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
       const mergeTarget = this.findMergeNode(realParent.mergedInto);
       if (mergeTarget && !mergeTarget.isRemoved) {
         const allCh = mergeTarget.allChildren;
+        // Right before the first child the merge moved in, or the start of
+        // the target when there is none.
+        let boundary: CRDTTreeNode = mergeTarget;
         for (let i = 0; i < allCh.length; i++) {
           const targetChild = allCh[i];
           if (
@@ -2833,13 +3464,26 @@ export class CRDTTree extends CRDTElement implements GCParent {
           ) {
             continue;
           }
-          if (i === 0) {
-            return [[mergeTarget, mergeTarget], diff];
+          if (i > 0) {
+            boundary = allCh[i - 1];
           }
-          return [[mergeTarget, allCh[i - 1]], diff];
+          break;
         }
-        // Fallback: insert at leftmost of merge target.
-        return [[mergeTarget, mergeTarget], diff];
+        if (editedAt && origin) {
+          // The merged-away parent's start is now this boundary inside the
+          // target, and its moved children (with `mergedFrom` naming it)
+          // follow: place among them by origin, as a replica that saw the
+          // insertion before the merge did.
+          const dest = this.placeByOrigin(
+            mergeTarget,
+            boundary,
+            origin,
+            editedAt,
+            diff,
+          );
+          return [[mergeTarget, dest], diff];
+        }
+        return [[mergeTarget, boundary], diff];
       }
     }
 
@@ -2856,7 +3500,22 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     // 04. Find the appropriate left node. If some nodes are inserted at the
     // same position concurrently, then we need to find the appropriate left
-    // node. This is similar to RGA.
+    // node. With an insertion origin this is the two-origin rule; without,
+    // it is the createdAt-only rule, similar to RGA.
+    if (editedAt && origin) {
+      const dest = this.placeByOrigin(
+        realParent,
+        leftNode,
+        origin,
+        editedAt,
+        diff,
+      );
+      // The scan may have continued into a split product of the parent.
+      if (dest !== realParent && dest.parent) {
+        return [[dest.parent, dest], diff];
+      }
+      return [[realParent, dest], diff];
+    }
     if (editedAt) {
       const allChildren = realParent.allChildren;
       const index = isLeftMost ? 0 : allChildren.indexOf(leftNode) + 1;
@@ -3068,6 +3727,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     editedAt: TimeTicket,
     issueTimeTicket: (() => TimeTicket) | undefined,
     versionVector?: VersionVector,
+    rightOrigin?: TreeInsertOrigin,
   ): [
     Array<TreeChange>,
     Array<GCPair>,
@@ -3086,15 +3746,36 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ] {
     const diff = { data: 0, meta: 0 };
 
+    // 00. With a right origin (only its right is read), the left origin is
+    // the from position in canonical form, the same on every replica.
+    let origin: TreeInsertOrigin | undefined;
+    if (rightOrigin && (contents?.length || splitLevel > 0)) {
+      const [left, ok] = this.canonicalLeft(range[0]);
+      if (ok) {
+        origin = {
+          left,
+          right: rightOrigin.right,
+          parent: range[0].getParentID(),
+          cut: !contents?.length,
+          vv: versionVector,
+        };
+      }
+    }
+
     // 01. find nodes from the given range and split nodes.
     const [[fromParent, fromLeftRaw], diffFrom] = this.findNodesAndSplitText(
       range[0],
       editedAt,
+      'insert',
+      origin,
     );
-    const [[toParent, toLeftRaw], diffTo] = this.findNodesAndSplitText(
-      range[1],
-      editedAt,
-    );
+    // A pure insertion: the range is empty wherever the two-origin rule
+    // placed it. Resolving `to` on its own would apply the createdAt rule
+    // and could open a range over concurrent siblings.
+    const [[toParent, toLeftRaw], diffTo]: [TreeNodePair, DataSize] =
+      origin && range[0].equals(range[1])
+        ? [[fromParent, fromLeftRaw], { data: 0, meta: 0 }]
+        : this.findNodesAndSplitText(range[1], editedAt);
 
     addDataSizes(diff, diffTo, diffFrom);
 
@@ -3707,6 +4388,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // it and shrinks what its size reads back as.
     if (contents) {
       contents = this.dropDuplicateContents(contents, editedAt);
+      if (origin) {
+        assignTreeOrigins(contents, origin);
+      }
     }
     const insertedContentSize = contents
       ? contents.reduce((sum, node) => sum + node.paddedSize(), 0)
@@ -3982,7 +4666,38 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * `purge` physically purges the given node.
    */
   public purge(node: CRDTTreeNode): void {
-    node.parent?.removeChild(node);
+    if (!node.parent || node.skeleton) {
+      return;
+    }
+
+    // Keep the node itself as a skeleton in its parent's child list instead
+    // of detaching it: insertion origins name siblings by ID and the
+    // placement rule scans the siblings between two origins, so both have to
+    // look the same on replicas that collected this tombstone and on
+    // replicas that did not. Only its removed subtree goes -- nothing can be
+    // inserted inside a removed node once its removal is stable.
+    if (!node.isText) {
+      for (const child of [...node.allChildren]) {
+        if (!child.isRemoved) {
+          continue;
+        }
+        node.removeChild(child);
+        traverseAll(child, (n) => this.unregisterPurged(n));
+      }
+      node.attrs = undefined;
+    } else {
+      // The length stays (`visibleSize`), so the ID range and the index
+      // sizes do not change. Undo refills the value from its restore span.
+      node._value = '';
+    }
+    node.skeleton = true;
+  }
+
+  /**
+   * `unregisterPurged` drops a node a skeleton purge detached from the ID
+   * map and from its split chain, as a physical purge does.
+   */
+  private unregisterPurged(node: CRDTTreeNode): void {
     // `nodeMapByID` is keyed by ID, so an unconditional remove would also
     // unregister a different node that shares this one's ID — see
     // `registerNode`. Only drop the entry this node actually holds.
@@ -4095,6 +4810,43 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     };
 
+    // A skeleton is a collected tombstone, so it is revived the way a purged
+    // node is recreated (`recreateFromSpan`), not the way a tombstone is
+    // un-removed: under a removed parent it comes back tombstoned with the
+    // parent's removal ticket, otherwise live and reported as recreated (it
+    // is in no GC ledger to move out of).
+    const reviveSkeleton = (node: CRDTTreeNode, span: TreeRestoreSpan) => {
+      if (node.isText) {
+        const rel = node.id.getOffset() - span.id.getOffset();
+        const length = node.visibleSize;
+        node._value = span.value!.substring(rel, rel + length);
+      } else if (span.attrs) {
+        node.attrs = span.attrs.deepcopy();
+        // Copied attribute tombstones are fresh garbage, as in
+        // `recreateFromSpan`.
+        for (const pair of node.getGCPairs()) {
+          this.pendingGCPairs.push(pair);
+        }
+      }
+      node.skeleton = false;
+      // A revived merge source drops its lineage, as an un-tombstoned one
+      // does (see `dissolveMerge`).
+      this.dissolveMerge(node);
+      const parent = node.parent;
+      if (parent && parent.isRemoved) {
+        node.removedAt = parent.removedAt;
+        this.pendingGCPairs.push({
+          parent: this,
+          child: node,
+          gcOnlySize: node.getDataSize(),
+        });
+        return;
+      }
+      node.unremove();
+      recreated.push(node);
+      revived(node);
+    };
+
     for (const span of spans) {
       if (!restoreSpanKindAgrees(span)) {
         continue;
@@ -4102,7 +4854,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (!span.isText) {
         const node = this.findFloorNode(span.id);
         if (node && node.id.equals(span.id)) {
-          if (node.isRemoved) {
+          if (node.skeleton) {
+            reviveSkeleton(node, span);
+          } else if (node.isRemoved) {
             this.dissolveMerge(node);
             node.unremove();
             untombstoned.push(node);
@@ -4142,12 +4896,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
       while (cursor < end) {
         const piece = pieces[pieceIdx];
         const pieceStart = piece ? piece.id.getOffset() : Infinity;
-        const pieceEnd = piece ? pieceStart + piece.value.length : Infinity;
+        const pieceEnd = piece ? pieceStart + piece.visibleSize : Infinity;
 
         if (piece && pieceStart <= cursor) {
           const overlapEnd = Math.min(pieceEnd, end);
           const target = this.isolateTextRange(piece, cursor, overlapEnd, diff);
-          if (target.isRemoved) {
+          if (target.skeleton) {
+            reviveSkeleton(target, span);
+          } else if (target.isRemoved) {
             target.unremove();
             untombstoned.push(target);
             revived(target);
@@ -4196,7 +4952,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       addDataSizes(diff, splitDiff);
       node = right!;
     }
-    if (to < node.id.getOffset() + node.value.length) {
+    if (to < node.id.getOffset() + node.visibleSize) {
       const [, splitDiff] = node.split(this, to - node.id.getOffset());
       addDataSizes(diff, splitDiff);
     }
@@ -4234,11 +4990,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
             (n): n is CRDTTreeNode => !!n && n.id.equals(span.id),
           );
       for (const piece of pieces) {
-        if (piece.isRemoved) continue;
+        if (piece.isRemoved || piece.skeleton) continue;
         let target = piece;
         if (piece.isText) {
           const from = Math.max(piece.id.getOffset(), start);
-          const to = Math.min(piece.id.getOffset() + piece.value.length, end);
+          const to = Math.min(piece.id.getOffset() + piece.visibleSize, end);
           target = this.isolateTextRange(piece, from, to, diff);
         }
         // Measure while `target` is still visible.
@@ -4348,7 +5104,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       const node = this.findFloorNode(CRDTTreeNodeID.of(createdAt, probe));
       if (!node || !node.isText) break;
       const nodeStart = node.id.getOffset();
-      const nodeEnd = nodeStart + node.value.length;
+      const nodeEnd = nodeStart + node.visibleSize;
       if (nodeEnd <= start) break;
       if (nodeStart < end && nodeEnd > start) pieces.push(node);
       if (nodeStart <= start) break;
@@ -4393,7 +5149,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       holder &&
       (holder.id.getOffset() === id.getOffset() ||
         (holder.isText &&
-          holder.id.getOffset() + holder.value.length > id.getOffset()))
+          holder.id.getOffset() + holder.visibleSize > id.getOffset()))
     ) {
       return;
     }
@@ -4613,6 +5369,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // The walk includes the root, and purging is detachment from a parent,
       // which the root does not have. It is never legitimately removed, but a
       // crafted Set/Add payload can mark it so; leave it unbooked, as Go does.
+      if (node.skeleton) {
+        // Already collected.
+        return;
+      }
       if (node.getRemovedAt() && node.parent) {
         pairs.push({
           parent: this,

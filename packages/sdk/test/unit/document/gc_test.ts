@@ -25,12 +25,13 @@ import { describe, it, assert } from 'vitest';
 function getNodeLength(root: IndexTreeNode<CRDTTreeNode>) {
   let size = 0;
 
-  size += root._children.length;
-
-  if (root._children.length) {
-    for (const child of root._children) {
-      size += getNodeLength(child);
+  // Collected nodes stay in place as skeletons (no value, no attributes) for
+  // the placement rule; count only the nodes that still hold content.
+  for (const child of root._children) {
+    if (!(child as CRDTTreeNode).skeleton) {
+      size += 1;
     }
+    size += getNodeLength(child);
   }
 
   return size;
@@ -153,16 +154,17 @@ describe('Garbage Collection', function () {
     doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
     assert.equal(doc.getGarbageLen(), 0);
 
+    // The collected tombstone stays as a skeleton: its position, no content.
     assert.equal(
       doc.getRoot().text.toTestString(),
-      '[0:00:0:0 ][3:00:1:0 12][2:00:1:2 CD]',
+      '[0:00:0:0 ][3:00:1:0 12]{2:00:1:0 skel(2)}[2:00:1:2 CD]',
     );
 
     doc.update((root) => root.text.edit(2, 4, ''));
 
     assert.equal(
       doc.getRoot().text.toTestString(),
-      '[0:00:0:0 ][3:00:1:0 12]{2:00:1:2 CD}',
+      '[0:00:0:0 ][3:00:1:0 12]{2:00:1:0 skel(2)}{2:00:1:2 CD}',
     );
   });
 
