@@ -1,40 +1,61 @@
-import { YorkieProvider, DocumentProvider, useDocument } from '@yorkie-js/react';
+import {
+  YorkieProvider,
+  DocumentProvider,
+  useDocument,
+  useConnection,
+  usePresences,
+  Text,
+} from '@yorkie-js/react';
+import Header, { type Status } from './Header';
+import NoteEditor from './NoteEditor';
 import RevisionPanel from './RevisionPanel';
 import './App.css';
 
-const DOC_KEY = `react-revision-${new Date().toISOString().slice(0, 10)}`;
+const apiAddr = import.meta.env.VITE_YORKIE_API_ADDR;
 
-interface DocType {
-  content: string;
+// One note per day: everyone who opens the example today edits the same note.
+const docKey = `react-revision-note-${new Date().toISOString().slice(0, 10)}`;
+
+// A random name for this tab, shown to others in the header.
+const names = ['Ali', 'Beatriz', 'Charles', 'Diya', 'Eric', 'Fatima'];
+const myName = names[Math.floor(Math.random() * names.length)];
+
+export interface DocType {
+  // `Text` merges concurrent edits character by character, unlike a plain
+  // string where the last writer would overwrite everyone else.
+  content: Text;
 }
 
-function NoteEditor() {
-  const { root, update, loading, error } = useDocument<DocType>();
+export type PresenceType = {
+  name: string;
+};
 
-  if (loading) return <div className="loading">Loading...</div>;
-  if (error) return <div className="error">Error: {error.message}</div>;
+function Note() {
+  const { loading, error } = useDocument<DocType, PresenceType>();
+  const connection = useConnection();
+  const presences = usePresences<PresenceType>();
+
+  let status: Status = 'connecting';
+  if (error) status = 'error';
+  else if (!loading)
+    status = connection === 'connected' ? 'connected' : 'offline';
 
   return (
     <div className="app">
-      <h1>Note with Revisions</h1>
-      <div className="editor-container">
-        <div className="editor-section">
-          <h2>Editor</h2>
-          <textarea
-            className="editor"
-            value={root.content}
-            onChange={(e) =>
-              update((root) => {
-                root.content = e.target.value;
-              })
-            }
-            placeholder="Start typing your note..."
-          />
-        </div>
-        <div className="revision-section">
+      <Header status={status} presences={presences} />
+      {error ? (
+        <p className="app-error" role="alert">
+          Couldn&apos;t reach the Yorkie server at {apiAddr}. Check that
+          it&apos;s running, then reload.
+        </p>
+      ) : loading ? (
+        <p className="app-loading">Loading today&apos;s note…</p>
+      ) : (
+        <main className="workspace">
+          <NoteEditor />
           <RevisionPanel />
-        </div>
-      </div>
+        </main>
+      )}
     </div>
   );
 }
@@ -43,10 +64,15 @@ export default function App() {
   return (
     <YorkieProvider
       apiKey={import.meta.env.VITE_YORKIE_API_KEY}
-      rpcAddr={import.meta.env.VITE_YORKIE_API_ADDR}
+      rpcAddr={apiAddr}
     >
-      <DocumentProvider docKey={DOC_KEY} initialRoot={{ content: '' }}>
-        <NoteEditor />
+      <DocumentProvider<DocType, PresenceType>
+        docKey={docKey}
+        initialRoot={{ content: new Text() }}
+        initialPresence={{ name: myName }}
+        enableDevtools={import.meta.env.DEV}
+      >
+        <Note />
       </DocumentProvider>
     </YorkieProvider>
   );
