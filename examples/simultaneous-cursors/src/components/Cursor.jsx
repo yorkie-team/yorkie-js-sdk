@@ -2,11 +2,13 @@ import { useLayoutEffect, useRef } from 'react';
 import FullAnimation from './FullAnimation';
 import ColoredIcon from './ColoredIcon';
 
-// Maps an icon's box to the point that should sit on the pointer (the nib
-// of the pen or highlighter). Other icons are anchored at center-bottom.
-const tipOffsets = {
-  pen: { w: 36, h: 36, tipX: 18, tipY: 38 },
-  highlighter: { w: 23, h: 24, tipX: 5, tipY: -8 },
+// Where the ink comes out of each drawing icon, in pixels from the icon's
+// top-left corner: the tip of the pen and the middle of the highlighter's
+// chisel edge, both read from the paths in `ColoredIcon.jsx`. That point
+// sits on the pointer. Other icons are anchored at center-bottom.
+const nibs = {
+  pen: { x: 8.7, y: 26.9 },
+  highlighter: { x: 3.7, y: 21.8 },
 };
 
 // A critically damped spring: it settles in about 0.2s without overshoot.
@@ -103,9 +105,9 @@ export default function Cursor({
   const ref = useRef(null);
   const tool = shape === 'pen' && fadeEnabled ? 'fading' : shape;
   const icon = shape === 'eraser' ? 'line' : tool;
-  const off = tipOffsets[tool === 'fading' ? 'pen' : tool];
-  const anchor = off
-    ? `translate(${-(off.w / 2) + off.tipX}px, ${-off.h + off.tipY}px)`
+  const nib = nibs[tool === 'fading' ? 'pen' : tool];
+  const anchor = nib
+    ? `translate(${-nib.x}px, ${-nib.y}px)`
     : 'translate(-50%, -100%)';
 
   // Presence carries the position as a fraction of the viewport.
