@@ -69,6 +69,27 @@ function useSpringPosition(ref, x, y, anchor, enabled) {
   useLayoutEffect(() => () => cancelAnimationFrame(frameRef.current), []);
 }
 
+/**
+ * `usePointerPosition` keeps the element in `ref` on our own pointer, read
+ * from `pointer` (see `local.js`) as each pointer event arrives. Presence
+ * is sent only every few frames, so following it would make our own cursor
+ * step instead of glide.
+ */
+function usePointerPosition(ref, pointer, anchor) {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!pointer || !el) return;
+    const place = () => {
+      const p = pointer.get();
+      el.style.visibility = p && !p.overInteractive ? '' : 'hidden';
+      if (p)
+        el.style.transform = `translate3d(${p.x}px, ${p.y}px, 0) ${anchor}`;
+    };
+    place();
+    return pointer.listen(place);
+  }, [ref, pointer, anchor]);
+}
+
 export default function Cursor({
   shape,
   fadeEnabled,
@@ -77,7 +98,7 @@ export default function Cursor({
   overInteractive,
   color,
   viewport,
-  animate,
+  pointer,
 }) {
   const ref = useRef(null);
   const tool = shape === 'pen' && fadeEnabled ? 'fading' : shape;
@@ -91,22 +112,15 @@ export default function Cursor({
   const x = cursor ? cursor.x * viewport.width : 0;
   const y = cursor ? cursor.y * viewport.height : 0;
   const visible = !!cursor && !overInteractive;
-  useSpringPosition(ref, x, y, anchor, animate && visible);
+  // A peer's cursor is placed by the spring; our own (`pointer` is given)
+  // follows the pointer directly. Both write the transform themselves.
+  useSpringPosition(ref, x, y, anchor, !pointer && visible);
+  usePointerPosition(ref, pointer, anchor);
 
   return (
     <>
-      {visible && (
-        <div
-          ref={ref}
-          className="cursor"
-          // A peer's cursor is placed by the spring; our own follows the
-          // pointer directly.
-          style={
-            animate
-              ? undefined
-              : { transform: `translate3d(${x}px, ${y}px, 0) ${anchor}` }
-          }
-        >
+      {(pointer || visible) && (
+        <div ref={ref} className="cursor">
           <ColoredIcon type={icon} color={color} />
         </div>
       )}
