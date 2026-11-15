@@ -3,6 +3,10 @@ on:
   workflow_dispatch:
   release:
     types: [published]
+
+# Nothing by default; the job below names what it needs.
+permissions: {}
+
 jobs:
   build:
     # NOT FOR A RELEASE THE AGENT APP CREATED. `contents: write` is one
@@ -19,8 +23,8 @@ jobs:
     if: github.event.release.author.login != 'yorkie-team-agent[bot]'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      id-token: write
+      contents: read # checkout
+      id-token: write # npm provenance (`pnpm publish --provenance`)
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4

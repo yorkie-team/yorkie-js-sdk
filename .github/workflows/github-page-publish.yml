@@ -5,9 +5,16 @@ on:
       - 'main'
     paths-ignore:
       - 'test/**'
+
+# Nothing by default; the job below names what it needs.
+permissions: {}
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # The site is served from the gh-pages branch, so publishing it is a push.
+    permissions:
+      contents: write # checkout, and the gh-pages push by actions-gh-pages
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4
