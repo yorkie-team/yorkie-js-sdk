@@ -3,6 +3,10 @@ on:
   workflow_dispatch:
   release:
     types: [published]
+
+# Nothing by default; the job below names what it needs.
+permissions: {}
+
 jobs:
   build-and-deploy:
     # A pre-release must not reach the public Chrome Web Store listing. Unlike
@@ -17,6 +21,9 @@ jobs:
       ${{ (github.event_name != 'release' || !github.event.release.prerelease)
       && github.event.release.author.login != 'yorkie-team-agent[bot]' }}
     runs-on: ubuntu-latest
+    # The store upload authenticates with BPP_KEYS, not the GitHub token.
+    permissions:
+      contents: read # checkout
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4
