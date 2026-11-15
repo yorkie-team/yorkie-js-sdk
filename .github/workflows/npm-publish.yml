@@ -33,21 +33,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'pnpm'
-          cache-dependency-path: pnpm-lock.yaml
+          # No cache: any job on main, the agent's included, can write entries.
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Cache pnpm store
-        id: cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
       - name: Install Dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
         run: pnpm install
 
       - name: SDK Build

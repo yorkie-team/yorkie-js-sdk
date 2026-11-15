@@ -31,7 +31,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
+          # PRs only: any job on main, the agent's included, can write entries.
+          cache: ${{ github.event_name == 'pull_request' && 'pnpm' || '' }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -77,19 +78,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
-
-      - name: Cache pnpm store
-        id: cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
+          # PRs only: any job on main, the agent's included, can write entries.
+          cache: ${{ github.event_name == 'pull_request' && 'pnpm' || '' }}
 
       - name: Install Dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
         run: pnpm install
 
       - name: Lint
