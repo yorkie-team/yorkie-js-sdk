@@ -285,7 +285,7 @@ brackets is then left out whole.
 | `todoTrackingLine` | sentences, optional | issue-to-PR: "The todo starts with a `**Created**: YYYY-MM-DD` line.[ `<todoTrackingLine>`]" | empty |
 | `implementVerifyStep` | sentences | issue-to-PR, the whole of step 5: "5. `<implementVerifyStep>`". Say what to run, what not to run, and that CI runs the rest | LET CI VERIFY — do NOT run `make test`, `make test-complex`, `make bench` or `make coverage`: … |
 | `replyVerifyInstruction` | fragment, optional | review-reply: "Act on it if it is right: edit the branch,[ `<replyVerifyInstruction>`,] commit with the trailer…" | empty |
-| `toolchainSteps` | fragment | the issue-to-PR job's report: "This run stopped after setup and before the agent started — `<toolchainSteps>`, fetching the issue, or revoking the pre-agent token." | the Go toolchain, the linter install |
+| `toolchainSteps` | fragment | the issue-to-PR job's report: "This run stopped after setup and before the agent started — `<toolchainSteps>`, checking out the base, collecting the issue, installing Bun for the agent, or finding that another run had already pushed a branch for this issue." | the Go toolchain, the linter install |
 | `lastResortDiagnosis` | sentences | CI-fix, when nothing could be read: "No failed-step log could be read for run N. `<lastResortDiagnosis>`" | Re-run the failing lane locally: `make verify` (…), then `make build`. |
 
 The three issue-to-PR values may use that prompt's own placeholders, which
@@ -401,14 +401,32 @@ repository that adopts the harness follows them:
 
 - The default branch is `main`. Workflows check trusted code out with
   `ref: main`, and the scripts' base-branch arguments default to it.
-- The issue-to-PR job's own token holds `contents: read` and nothing else,
-  which reads `main` in a private repository as well as a public one. It is
-  read-only because the agent runs in that job and the token reaches it.
-  Every write there goes through an App token; the two comments that must
-  not depend on the App (the "App is not configured" reply and the no-PR
-  report) are posted by its `finish` job, which runs only for a commenter
-  the write-access check admitted. The pre-agent App token is revoked before
-  the agent starts, and if the revocation fails the agent does not start.
+- The issue-to-PR verb runs in three jobs, and its agent's job holds no
+  credential that writes to the repository. (Every job is still given a
+  runtime token for the Actions cache and its run's artifacts, which
+  `permissions:` does not govern; the design doc's residuals say what that
+  leaves open.) `prepare` makes every App call before the agent (the
+  write-access check, the protection gate, the duplicate-branch pre-flight,
+  the "On it" reply, the issue text) and records the base commit. `implement`
+  runs the agent with the Claude credentials, each named, and a token that
+  holds `contents: read` and nothing else, which reads `main` in a private
+  repository as well as a public one; no App secret is referenced there,
+  because a runner is sent every secret its job references and the agent has
+  that runner. The agent commits and does not push. `finish` checks those
+  commits (`bundle-handoff.mjs`, below), pushes them with an App token it
+  mints only after they pass, and opens the draft PR. It is `!cancelled()`,
+  so a maintainer's Cancel stops the push: a step's own `cancelled()` sees
+  only its job's cancellation, never the run's. `report` posts the two
+  comments that must not depend on the App (the "App is not configured" reply
+  and the no-PR report), and is `always()`, so they survive a cancelled run.
+  Both run only for a commenter the write-access check admitted.
+- The issue-to-PR agent hands over ONE branch, `agent/<issue>-<slug>`, built
+  on the commit it was given. `bundle-handoff.mjs` refuses the whole branch,
+  and nothing is pushed, if there is more than one, if any commit does not
+  descend from that base, if the bundle is over 32 MiB or the branch over 100
+  commits, or if any commit changes `.github/workflows` — a deletion
+  included. Its own step stops at 50 minutes, and what it committed by then
+  is still handed over.
 - `agent-scripts.yml` triggers on the harness's own paths and weekly. It
   cannot trigger on a repository's lane files (a `paths:` filter is not
   configurable), so drift between the toolchain action — and anything it
@@ -472,6 +490,10 @@ repository that adopts the harness follows them:
 - This package lives at `scripts/agent`, and nothing in it imports from
   outside it: workflows check it out or copy it without its parent directory.
   `command.mjs` imports nothing at all, because route jobs check it out alone.
+- No trusted job that holds a secret or a write-capable token restores an
+  Actions cache, in any workflow of the repository, not only the harness's.
+  `trusted-cache.test.mjs` checks it in `npm test`; "The Actions cache guard"
+  says what it requires.
 
 ## Adopting and syncing
 
@@ -725,6 +747,35 @@ issues on a clock, with nobody watching:
 Adding a step to that workflow therefore means editing the list in the
 guard, in the same pull request, where a reviewer sees both.
 
+### The issue-to-PR boundary
+
+`checks.test.mjs` holds `agent-implement.yml` to its layout by reading what
+each job is sent and by running the jobs' step conditions, not by matching
+their text:
+
+- every secret a job references is read out of its `${{ }}` expressions, the
+  workflow's own `env:` included: the agent's job may name the Claude pool
+  credentials and nothing else, no job may look a secret up by a computed
+  name or read the whole context, and the App's private key appears only in
+  the steps that mint with it;
+- the agent's job token is exactly `contents: read`, the agent is handed that
+  token, and nothing in that job mints or uses an App token;
+- with every step of `prepare` failing in turn, on both entry points, with
+  and without the App — and, where the agent's job starts, every step of it,
+  and inside `finish` every step of that — the agent never starts past a
+  failed gate, `finish` and `report` run exactly for an admitted commenter,
+  the push happens only after verification passed, with its token minted
+  after that, and never on a run cancelled at any point or with the pipeline
+  switched off, while the report still runs;
+- the base `finish` verifies against comes from `prepare`, and `finish`
+  downloads the agent's output outside the workspace, runs no git itself and
+  no command from that output.
+
+`bundle-handoff.test.mjs` builds real bundles, most of them hostile, and runs
+the checks against them. Each named loosening of the workflow is a mutation
+the guard must refuse, and a handful of ordinary edits are mutations it must
+accept.
+
 ### What this guard does not see
 
 It reads workflow text for the shapes the workflows use today. It exists to
@@ -743,6 +794,10 @@ around it, and these pass it:
   `"uses":`), flow-style mappings, anchors.
 - What the toolchain action does once it runs. Where its file came from is
   checked; the actions it nests and the commands it runs are not.
+- What a step writes to a file another job reads. The guard sees the values
+  a step is given, not what it puts in an artifact; for the issue-to-PR
+  verb it holds the step that writes the agent's issue file to holding
+  nothing worth leaking instead.
 - What happens to `.trusted-toolchain` after the agent starts. The agent can
   rewrite the action's file before the job's post phase. The post steps that
   run were recorded when the action first ran, and an agent with a shell can
@@ -752,3 +807,103 @@ around it, and these pass it:
 Workflow files are CI-defining and CODEOWNER-ed, so every edit to one still
 needs a human reviewer. The list above is what that reviewer has to look for,
 because the guard will not.
+
+## The Actions cache guard
+
+Every agent job runs on the default branch's ref, and whoever controls a
+job's runner can use the job's Actions runtime token to save cache entries in
+that ref's scope, under any key nobody has saved yet. A run restores entries
+from its own ref and from the default branch. So a default-branch entry is
+untrusted data, and a job that restores one runs what it holds (a toolchain,
+a module or build cache, a binary, an image layer) with that job's
+credentials.
+
+`trusted-cache.test.mjs` reads every `.github/workflows/*.yml` and `*.yaml`
+in the repository, the harness's and the repository's own, and fails on any
+step that restores a cache in a job that is both:
+
+- **trusted**: started by any event other than `pull_request`,
+  `pull_request_review`, `pull_request_review_comment` or `merge_group`. A
+  pull request's own jobs already run what the branch wrote, so a cache adds
+  nothing there. A job or step whose `if:` can only hold on those events
+  (`github.event_name == 'pull_request'`, alone, in a `||` of such
+  comparisons, or as one term of an `&&`) is treated as a pull request's own.
+- **privileged**: it references a secret other than `GITHUB_TOKEN`
+  (`secrets.X`, `secrets[...]`, in the job or the workflow's `env`), or its
+  token can write anything (`write-all`, or any scope at `write`,
+  `id-token` included). A job with no `permissions:` at job or workflow level
+  counts as write-capable, because the repository default may be. A job is
+  privileged too when a job that `needs` it, directly or through others,
+  is: its outputs and artifacts reach that job, and a cache it restored
+  with them.
+
+It follows `uses: ./.github/workflows/x.yml` into the called workflow, judged
+in its caller's trigger, with the caller's token as a ceiling and with
+secrets only if the caller passes some (`secrets: inherit` or a mapping). A
+call by full name, `<owner>/<repo>/.github/workflows/x.yml@ref`, is followed
+the same way whenever this tree has that file: the configuration does not
+name the repository's owner, so any same-named file is read as this
+repository's, which can only add callers. A reusable workflow that nothing in
+the repository calls is judged as if called from a trusted trigger with
+secrets. A workflow that reaches itself through its calls is a failure. It follows `uses: ./path` into
+the local composite action and its nested ones; `./<dir>/.github/actions/x`,
+a checkout of this repository under a subdirectory, is read from this tree's
+`.github/actions/x`. A local action or workflow it cannot read is a failure.
+So is a YAML merge key (`<<`) anywhere in a workflow or a local action it
+reads: it would hide inputs and steps from every rule, and the guard does not
+resolve it.
+
+What it refuses in such a job, and what turns each off:
+
+| Step | Restores unless |
+|---|---|
+| `actions/cache`, `actions/cache/restore` | `lookup-only: true` |
+| `actions/setup-go`, at any version | `cache: false` |
+| `actions/setup-node` with `cache:` | the input is dropped |
+| `actions/setup-node` at any ref but a tag below v5 | `package-manager-cache: false` |
+| any other `actions/setup-*` with `cache:` | the input is dropped |
+| `ruby/setup-ruby` | no `bundler-cache:` |
+| `pnpm/action-setup` | no `cache:` |
+| `Swatinem/rust-cache` | `lookup-only: true` |
+| `cache-from` naming `type=gha`, or taking a variable or an expression, in any input or in a `run:` line (backslash continuations joined) | it is removed or spelled out |
+| `mozilla-actions/sccache-action` with `SCCACHE_GHA_ENABLED` set anywhere | the variable is removed |
+| `gradle/actions/setup-gradle`, `gradle/gradle-build-action` | `cache-disabled: true` |
+| `astral-sh/setup-uv` | `enable-cache: false` |
+| `actions-rust-lang/setup-rust-toolchain` | `cache: false` |
+| `golangci/golangci-lint-action` | `skip-cache: true` |
+| `jdx/mise-action` | `cache: false` |
+| `docker/setup-buildx-action` | `cache-binary: false` |
+| `docker/setup-qemu-action` | `cache-image: false` |
+| `oven-sh/setup-bun` | `no-cache: true` |
+| `anthropics/claude-code-action` (its own Bun install is cached) | `path_to_bun_executable` is set |
+
+An input set to an expression counts as on, except one that is off on every
+trusted event: a pull-request-only condition, or such a condition choosing a
+value with an `''` or `false` fallback
+(`${{ github.event_name == 'pull_request' && 'pnpm' || '' }}`). A version is
+read only from a tag (`@v4`, `@v4.4.0`). A commit pin's `# vN` comment is not
+checked against the commit, so a commit-pinned action is read at its newest
+behaviour.
+
+Saving is not refused: `actions/cache/save` and `cache-to` write entries,
+they do not run them.
+
+A repository that adopts the harness therefore turns these off in its own
+publish, release and push-to-main jobs, or limits them to pull requests, or
+gives the job no secret and a read-only token. The agent workflows install
+Bun themselves with `no-cache: true` and hand it to claude-code-action, and
+the toolchain action sets `cache: false` on `setup-go`.
+
+### What the cache guard does not see
+
+- Actions from other repositories that cache internally and are not in the
+  table, and reusable workflows from other repositories.
+- A step that reads the cache service directly (`ACTIONS_CACHE_URL`,
+  `ACTIONS_RESULTS_URL`) or a tool that does so on its own.
+- What a job does with an artifact from another run (`workflow_run`, or
+  `actions/download-artifact` with a `run-id`). An artifact is not a cache,
+  but one from a less trusted run carries the same risk. Within a run, only
+  `needs:` is followed.
+- An `if:` it does not recognise is treated as able to run on a trusted
+  event, so it can refuse a step that only ever runs on a pull request. Make
+  the condition one of the recognised forms.
