@@ -21,6 +21,9 @@ or a pen and the others see it as you move.
   transition, so they keep their momentum through turns. See
   [How to animate multiplayer cursors](https://liveblocks.io/blog/how-to-animate-multiplayer-cursors)
   for the trade-offs between transitions, springs and splines.
+- **Your own cursor and ink** are drawn straight from pointer events, not
+  from your presence: presence goes out at most every 40ms, so drawing
+  yourself from it would step behind your hand.
 
 <img width="500" alt="Simultaneous Cursors" src="./thumbnail.jpg">
 
