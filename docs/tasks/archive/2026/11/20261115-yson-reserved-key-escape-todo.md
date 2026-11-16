@@ -42,4 +42,4 @@ is spelled. Only the markers `preprocessYSON` itself emits are read as markers.
 - [x] Escape prefix is injective: `__yson_esc_x` round-trips too
 - [x] `attrs` keys on text and tree nodes unescaped
 - [x] Constructor literals still parse unchanged
-- [ ] Archive this pair before the pull request merges
+- [x] Archive this pair before the pull request merges
