@@ -836,5 +836,60 @@ describe('YSON Parser', () => {
         },
       });
     });
+
+    it('should keep a reserved key nested in a text attribute value', () => {
+      const input =
+        '{"t":Text([{"val":"a","attrs":{"k":{"__yson_type":"b"}}}])}';
+      expect(YSON.parse(input)).toEqual({
+        t: {
+          type: 'Text',
+          nodes: [{ val: 'a', attrs: { k: { __yson_type: 'b' } } }],
+        },
+      });
+    });
+
+    it('should keep a reserved key nested in a tree attribute value', () => {
+      const input =
+        '{"t":Tree({"type":"doc","attrs":{"k":[{"__yson_type":"b"}]},"children":[]})}';
+      expect(YSON.parse(input)).toEqual({
+        t: {
+          type: 'Tree',
+          root: {
+            type: 'doc',
+            attrs: { k: [{ __yson_type: 'b' }] },
+            children: [],
+          },
+        },
+      });
+    });
+
+    it('should keep an array-valued attrs an array', () => {
+      const parsed = YSON.parse<any>(
+        '{"t":Text([{"val":"a","attrs":[{"__yson_type":"b"}]}])}',
+      );
+      expect(Array.isArray(parsed.t.nodes[0].attrs)).toBe(true);
+      expect(parsed.t.nodes[0].attrs).toEqual([{ __yson_type: 'b' }]);
+    });
+
+    it('should keep a __proto__ key an own property of an object', () => {
+      const parsed = YSON.parse<any>('{"x":{"__proto__":{"polluted":true}}}');
+      expect(Object.getPrototypeOf(parsed.x)).toBe(Object.prototype);
+      expect(Object.prototype.hasOwnProperty.call(parsed.x, '__proto__')).toBe(
+        true,
+      );
+      expect(({} as any).polluted).toBeUndefined();
+    });
+
+    it('should keep a __proto__ attribute an own property', () => {
+      const parsed = YSON.parse<any>(
+        '{"t":Tree({"type":"doc","attrs":{"__proto__":{"polluted":true}},"children":[]})}',
+      );
+      const attrs = parsed.t.root.attrs;
+      expect(Object.getPrototypeOf(attrs)).toBe(Object.prototype);
+      expect(Object.prototype.hasOwnProperty.call(attrs, '__proto__')).toBe(
+        true,
+      );
+      expect(({} as any).polluted).toBeUndefined();
+    });
   });
 });

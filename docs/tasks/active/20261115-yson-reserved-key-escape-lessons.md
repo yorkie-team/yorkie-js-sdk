@@ -19,3 +19,12 @@
   verbatim, so they do not go through the object branch where keys are
   unescaped. Every place a map of user keys reaches the output needs the
   unescape, not just the generic one.
+- The escape pass runs over keys in key position at *any* depth, so the
+  restore has to be just as deep. A one-level unescape of `attrs` left a
+  reserved key nested inside an attribute value spelled `__yson_esc_…` in the
+  output — the mirror of the bug the pass was written to fix.
+- Turning a verbatim copy into a key-by-key rebuild changes what a key named
+  `__proto__` means: `JSON.parse` leaves it an inert own property, but
+  `result[key] = val` hands it to the prototype setter. Any rebuild of parsed
+  keys has to write them with `Object.defineProperty`, and a rebuild also has
+  to preserve arrays rather than flattening them into an object literal.

@@ -132,16 +132,41 @@ function unescapeKey(key: string): string {
 }
 
 /**
- * `unescapeKeys` returns a copy of `map` with every key unescaped. The `attrs`
- * of a text or tree node are user keys that reach the output without going
- * through the object branch of `postprocessValue`, so they need this.
+ * `defineKey` writes `val` under `key` as an own data property of `target`.
+ *
+ * Every key here comes from the parsed document, so plain assignment would
+ * hand a key named `__proto__` to the object's own setter and replace the
+ * result's prototype instead of recording a key. `JSON.parse` makes such a key
+ * an inert own property; this keeps it one.
  */
-function unescapeKeys<T>(map: Record<string, T>): Record<string, T> {
-  const result: Record<string, T> = {};
-  for (const [key, val] of Object.entries(map)) {
-    result[unescapeKey(key)] = val;
+function defineKey(target: Record<string, any>, key: string, val: any): void {
+  Object.defineProperty(target, key, {
+    value: val,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+/**
+ * `unescapeKeys` returns a copy of `value` with every object key unescaped, at
+ * any depth. The `attrs` of a text or tree node are user data that reaches the
+ * output without going through the object branch of `postprocessValue`, and
+ * `preprocessYSON` escapes keys in key position wherever they appear, so an
+ * attribute's own value can hold escaped keys too.
+ */
+function unescapeKeys<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => unescapeKeys(item)) as unknown as T;
   }
-  return result;
+  if (value === null || typeof value !== 'object') {
+    return value;
+  }
+  const result: Record<string, any> = {};
+  for (const [key, val] of Object.entries(value)) {
+    defineKey(result, unescapeKey(key), unescapeKeys(val));
+  }
+  return result as T;
 }
 
 /**
@@ -588,7 +613,7 @@ function postprocessValue(value: any): YSONValue {
   // reserved namespace.
   const result: any = {};
   for (const [key, val] of Object.entries(value)) {
-    result[unescapeKey(key)] = postprocessValue(val);
+    defineKey(result, unescapeKey(key), postprocessValue(val));
   }
   return result;
 }
