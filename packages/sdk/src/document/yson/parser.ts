@@ -99,6 +99,77 @@ const ysonConstructors = [
 ];
 
 /**
+ * `reservedKeyPrefix` is the key namespace `preprocessYSON` emits its markers
+ * in: `__yson_type`, `__yson_data` and `__yson_registers`. Because the markers
+ * are plain JSON keys, a key the input itself writes in this namespace would be
+ * read back as a marker, so such keys are escaped on the way in and restored on
+ * the way out.
+ */
+const reservedKeyPrefix = '__yson_';
+
+/**
+ * `escapedKeyPrefix` is what an input key in the reserved namespace is prefixed
+ * with. It starts with `reservedKeyPrefix` itself, which is what makes the
+ * escape injective: a key already spelled `__yson_esc_x` is escaped in turn, to
+ * `__yson_esc___yson_esc_x`, and strips back to exactly what it was.
+ */
+const escapedKeyPrefix = '__yson_esc_';
+
+/**
+ * `escapeKey` returns `key` in a namespace the marker reader never looks at.
+ */
+function escapeKey(key: string): string {
+  return key.startsWith(reservedKeyPrefix) ? escapedKeyPrefix + key : key;
+}
+
+/**
+ * `unescapeKey` undoes `escapeKey`.
+ */
+function unescapeKey(key: string): string {
+  return key.startsWith(escapedKeyPrefix)
+    ? key.slice(escapedKeyPrefix.length)
+    : key;
+}
+
+/**
+ * `defineKey` writes `val` under `key` as an own data property of `target`.
+ *
+ * Every key here comes from the parsed document, so plain assignment would
+ * hand a key named `__proto__` to the object's own setter and replace the
+ * result's prototype instead of recording a key. `JSON.parse` makes such a key
+ * an inert own property; this keeps it one.
+ */
+function defineKey(target: Record<string, any>, key: string, val: any): void {
+  Object.defineProperty(target, key, {
+    value: val,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+/**
+ * `unescapeKeys` returns a copy of `value` with every object key unescaped, at
+ * any depth. The `attrs` of a text or tree node are user data that reaches the
+ * output without going through the object branch of `postprocessValue`, and
+ * `preprocessYSON` escapes keys in key position wherever they appear, so an
+ * attribute's own value can hold escaped keys too.
+ */
+function unescapeKeys<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => unescapeKeys(item)) as unknown as T;
+  }
+  if (value === null || typeof value !== 'object') {
+    return value;
+  }
+  const result: Record<string, any> = {};
+  for (const [key, val] of Object.entries(value)) {
+    defineKey(result, unescapeKey(key), unescapeKeys(val));
+  }
+  return result as T;
+}
+
+/**
  * `isIdentChar` reports whether `ch` can appear inside an identifier. Used to
  * ensure a constructor keyword is matched at a token boundary, not as the tail
  * of some longer word.
@@ -273,6 +344,39 @@ function isStringLiteral(s: string): boolean {
 }
 
 /**
+ * `isKeyPosition` reports whether the string literal ending at `end` is an
+ * object key, which in JSON is exactly a literal followed by `:`.
+ */
+function isKeyPosition(s: string, end: number): boolean {
+  let i = end;
+  while (i < s.length && /[ \t\n\r]/.test(s[i])) {
+    i++;
+  }
+  return s[i] === ':';
+}
+
+/**
+ * `escapeKeyLiteral` returns the JSON string literal `literal` with its key
+ * escaped if it names the reserved namespace, and unchanged otherwise.
+ *
+ * The decision is made on the decoded key, not on the source text: a key
+ * spelled `"__yson_type"` is the same key as `"__yson_type"` once
+ * `JSON.parse` has run, so comparing the raw slice would let the escaped
+ * spelling through. A literal that does not decode is passed on verbatim, for
+ * `JSON.parse` to report.
+ */
+function escapeKeyLiteral(literal: string): string {
+  let key: string;
+  try {
+    key = JSON.parse(literal);
+  } catch {
+    return literal;
+  }
+  const escaped = escapeKey(key);
+  return escaped === key ? literal : JSON.stringify(escaped);
+}
+
+/**
  * `matchConstructorAt` returns the constructor name that begins at `i` (when
  * immediately followed by `(` and starting on a token boundary), or `null`.
  */
@@ -306,6 +410,11 @@ function matchConstructorAt(s: string, i: number): string | undefined {
  * `Int(1},"y":{"a":2)` would parse to an object carrying a `y` key that was
  * never in the document.
  *
+ * Because the markers are plain JSON keys, an object key the input itself
+ * writes in the `__yson_` namespace would be read back as one. Such keys are
+ * escaped here and restored by `postprocessValue`, so a document that carries
+ * them round-trips rather than being reinterpreted.
+ *
  * Transformations:
  * - `Text([...])` → `{"__yson_type":"Text","__yson_data":[...]}`
  * - `Tree(...)` → `{"__yson_type":"Tree","__yson_data":...}`
@@ -323,10 +432,13 @@ function preprocessYSON(yson: string): string {
     const ch = yson[i];
 
     // Copy string literals verbatim so their contents are never interpreted
-    // as structure.
+    // as structure. A literal in key position is the one exception: a key in
+    // the reserved namespace is escaped, so that it cannot be read back as one
+    // of the markers emitted below.
     if (ch === '"') {
       const end = skipString(yson, i);
-      result += yson.slice(i, end);
+      const literal = yson.slice(i, end);
+      result += isKeyPosition(yson, end) ? escapeKeyLiteral(literal) : literal;
       i = end;
       continue;
     }
@@ -497,10 +609,11 @@ function postprocessValue(value: any): YSONValue {
     return value.map((item) => postprocessValue(item));
   }
 
-  // Handle objects
+  // Handle objects, restoring any key `preprocessYSON` moved out of the
+  // reserved namespace.
   const result: any = {};
   for (const [key, val] of Object.entries(value)) {
-    result[key] = postprocessValue(val);
+    defineKey(result, unescapeKey(key), postprocessValue(val));
   }
   return result;
 }
@@ -520,7 +633,7 @@ function postprocessTextNode(node: any): YSONTextNode {
   const result: YSONTextNode = { val: node.val };
 
   if (node.attrs && typeof node.attrs === 'object') {
-    result.attrs = node.attrs;
+    result.attrs = unescapeKeys(node.attrs);
   }
 
   return result;
@@ -548,7 +661,7 @@ function postprocessTreeNode(node: any): YSONTreeNode {
 
   // Element node
   if (node.attrs && typeof node.attrs === 'object') {
-    result.attrs = node.attrs;
+    result.attrs = unescapeKeys(node.attrs);
   }
 
   if (Array.isArray(node.children)) {

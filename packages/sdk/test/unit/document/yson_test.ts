@@ -771,4 +771,125 @@ describe('YSON Parser', () => {
       }
     });
   });
+
+  describe('Reserved Marker Keys', () => {
+    it('should not read a user key as a type marker', () => {
+      expect(YSON.parse('{"x":{"__yson_type":"Int","__yson_data":7}}')).toEqual(
+        {
+          x: { __yson_type: 'Int', __yson_data: 7 },
+        },
+      );
+    });
+
+    it('should not read a user key as a DedupCounter marker', () => {
+      const input =
+        '{"x":{"__yson_type":"DedupCounter","__yson_data":{"__yson_type":"Int","__yson_data":1},"__yson_registers":"aGk="}}';
+      expect(YSON.parse(input)).toEqual({
+        x: {
+          __yson_type: 'DedupCounter',
+          __yson_data: { __yson_type: 'Int', __yson_data: 1 },
+          __yson_registers: 'aGk=',
+        },
+      });
+    });
+
+    it('should recognize a marker key however it is spelled', () => {
+      const input = '{"x":{"\\u005f_yson_type":"Int","__yson_\\u0064ata":7}}';
+      expect(YSON.parse(input)).toEqual({
+        x: { __yson_type: 'Int', __yson_data: 7 },
+      });
+    });
+
+    it('should round-trip a key that collides with the escape prefix', () => {
+      expect(
+        YSON.parse('{"__yson_esc_x":1,"__yson_esc___yson_type":2}'),
+      ).toEqual({ __yson_esc_x: 1, __yson_esc___yson_type: 2 });
+    });
+
+    it('should keep a reserved key that holds a constructor', () => {
+      expect(YSON.parse('{"__yson_data":Int(3)}')).toEqual({
+        __yson_data: { type: 'Int', value: 3 },
+      });
+    });
+
+    it('should leave a reserved name used as a string value alone', () => {
+      expect(YSON.parse('{"v":"__yson_type","w":"__yson_esc_a"}')).toEqual({
+        v: '__yson_type',
+        w: '__yson_esc_a',
+      });
+    });
+
+    it('should keep a reserved key in text node attributes', () => {
+      const input = '{"t":Text([{"val":"a","attrs":{"__yson_type":"b"}}])}';
+      expect(YSON.parse(input)).toEqual({
+        t: { type: 'Text', nodes: [{ val: 'a', attrs: { __yson_type: 'b' } }] },
+      });
+    });
+
+    it('should keep a reserved key in tree node attributes', () => {
+      const input =
+        '{"t":Tree({"type":"doc","attrs":{"__yson_type":"b"},"children":[]})}';
+      expect(YSON.parse(input)).toEqual({
+        t: {
+          type: 'Tree',
+          root: { type: 'doc', attrs: { __yson_type: 'b' }, children: [] },
+        },
+      });
+    });
+
+    it('should keep a reserved key nested in a text attribute value', () => {
+      const input =
+        '{"t":Text([{"val":"a","attrs":{"k":{"__yson_type":"b"}}}])}';
+      expect(YSON.parse(input)).toEqual({
+        t: {
+          type: 'Text',
+          nodes: [{ val: 'a', attrs: { k: { __yson_type: 'b' } } }],
+        },
+      });
+    });
+
+    it('should keep a reserved key nested in a tree attribute value', () => {
+      const input =
+        '{"t":Tree({"type":"doc","attrs":{"k":[{"__yson_type":"b"}]},"children":[]})}';
+      expect(YSON.parse(input)).toEqual({
+        t: {
+          type: 'Tree',
+          root: {
+            type: 'doc',
+            attrs: { k: [{ __yson_type: 'b' }] },
+            children: [],
+          },
+        },
+      });
+    });
+
+    it('should keep an array-valued attrs an array', () => {
+      const parsed = YSON.parse<any>(
+        '{"t":Text([{"val":"a","attrs":[{"__yson_type":"b"}]}])}',
+      );
+      expect(Array.isArray(parsed.t.nodes[0].attrs)).toBe(true);
+      expect(parsed.t.nodes[0].attrs).toEqual([{ __yson_type: 'b' }]);
+    });
+
+    it('should keep a __proto__ key an own property of an object', () => {
+      const parsed = YSON.parse<any>('{"x":{"__proto__":{"polluted":true}}}');
+      expect(Object.getPrototypeOf(parsed.x)).toBe(Object.prototype);
+      expect(Object.prototype.hasOwnProperty.call(parsed.x, '__proto__')).toBe(
+        true,
+      );
+      expect(({} as any).polluted).toBeUndefined();
+    });
+
+    it('should keep a __proto__ attribute an own property', () => {
+      const parsed = YSON.parse<any>(
+        '{"t":Tree({"type":"doc","attrs":{"__proto__":{"polluted":true}},"children":[]})}',
+      );
+      const attrs = parsed.t.root.attrs;
+      expect(Object.getPrototypeOf(attrs)).toBe(Object.prototype);
+      expect(Object.prototype.hasOwnProperty.call(attrs, '__proto__')).toBe(
+        true,
+      );
+      expect(({} as any).polluted).toBeUndefined();
+    });
+  });
 });
