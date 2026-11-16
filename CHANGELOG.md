@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.28] - 2026-11-16
+
+### Changed
+
+- Polish the example apps into one family by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1537. All 17 examples now share the yorkie.dev design system, say what to try, show loading and error states and name peers instead of showing raw IDs. Several broken examples are fixed along the way: tldraw no longer hangs on Loading under StrictMode, TodoMVC no longer deletes a todo you try to edit, CodeMirror draws remote cursors, and the presence rooms count who is online.
+
+### Fixed
+
+- Escape user keys in YSON's reserved marker namespace by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/pull/1545. A document whose data held a key such as `__yson_type` used to be parsed as a YSON marker, with no error; such keys are now escaped before the rewrite and restored after, so the document round-trips. A key named `__proto__` stays an own property, as `JSON.parse` leaves it.
+- Keep simultaneous-cursors ink whole across peers by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1540, and draw the local cursor and ink straight from pointer events, with the pen and highlighter nibs on the pointer, in https://github.com/yorkie-team/yorkie-js-sdk/pull/1547 and https://github.com/yorkie-team/yorkie-js-sdk/pull/1548
+
 ## [v0.7.27] - 2026-11-10
 
 ### Fixed
