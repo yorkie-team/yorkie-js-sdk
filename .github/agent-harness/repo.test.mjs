@@ -2192,7 +2192,11 @@ test('the step installs an ordinary tree without the runner touching it', () => 
       (dir) => {
         // A link that stays among the workspace's own files is not refused.
         symlinkSync('packages', path.join(dir, 'alias'));
-        mkdirSync(path.join(dir, '.trusted-toolchain'));
+        // A trusted checkout as actions/checkout leaves it, with its own
+        // `.git`: the fix job's is, and the walk once refused it.
+        mkdirSync(path.join(dir, '.trusted-toolchain', '.git'), {
+          recursive: true,
+        });
       },
       {
         env: {
@@ -2516,6 +2520,11 @@ test('the step installs an ordinary tree without the runner touching it', () => 
         'a .git below the root',
         'mkdir -p sub/.git/hooks\n',
         /sub\/\.git: a \.git below the workspace root after the install/,
+      ],
+      [
+        "a .git below a trusted checkout's own",
+        'mkdir -p .trusted-toolchain/sub/.git\n',
+        /\.trusted-toolchain\/sub\/\.git: a \.git below the workspace root after the install/,
       ],
     ]) {
       const r = step.run(

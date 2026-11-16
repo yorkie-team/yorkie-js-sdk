@@ -1263,8 +1263,9 @@ export function compareSnapshots(before, after) {
  * After the install, on the runner: no symbolic link in the workspace leads
  * out of it, into `.git`, into a trusted checkout or into the runner's temp
  * directory — whether the checkout had it or the install made it — and
- * there is no `.git` below the root. A later step that follows a link, or runs git
- * in a subdirectory, must end up among the workspace's own files.
+ * there is no `.git` below the root but a trusted checkout's own. A later
+ * step that follows a link, or runs git in a subdirectory, must end up among
+ * the workspace's own files.
  */
 export function checkLinks(root, { runnerTemp = '' } = {}) {
   const real = physical(root);
@@ -1274,7 +1275,7 @@ export function checkLinks(root, { runnerTemp = '' } = {}) {
   walk(
     real,
     (rel, st, full) => {
-      if (rel !== '.git' && path.basename(rel) === '.git') {
+      if (path.basename(rel) === '.git') {
         refuse(`${rel}: a .git below the workspace root after the install`);
       }
       if (!st.isSymbolicLink()) return;
@@ -1314,9 +1315,14 @@ export function checkLinks(root, { runnerTemp = '' } = {}) {
         );
       }
     },
-    (full, rel) => rel === '.git',
+    // The repository's own `.git`, and the one actions/checkout leaves at the
+    // top of each trusted checkout: the job made both, and the container saw
+    // neither (each is under a covered mount). Any other `.git` is refused.
+    (full, rel) => rel === '.git' || TRUSTED_CHECKOUT_GIT.test(rel),
   );
 }
+
+const TRUSTED_CHECKOUT_GIT = /^\.trusted-[^/]+\/\.git$/;
 
 const USAGE =
   'usage: check-install-inputs.mjs before|installed <root> | snapshot|after <root> <file> [<runner temp> <exclude> <home>]';
