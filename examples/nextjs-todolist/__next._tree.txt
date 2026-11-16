@@ -1,4 +1,4 @@
 :HL["/yorkie-js-sdk/examples/nextjs-todolist/_next/static/chunks/1m4qf8sil0wsm.css","style"]
 :HL["https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css","style"]
 1:[["children",{"s":"__PAGE__","h":160}]]
-0:{"b":"IbRtuVMdlA8fsiHbhJqAc","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
+0:{"b":"iWXdF7Ai8azvFJq4pVhLa","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
