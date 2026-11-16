@@ -124,11 +124,11 @@ const EXPECTED = {
   // `cp -R … scripts/agent …/agent-tools`, each with its configuration.
   stagingCopies: 4,
   // Places a harness script is run, and how many of them read the configuration.
-  invocations: 114,
-  configReadingInvocations: 90,
+  invocations: 117,
+  configReadingInvocations: 91,
   // …by the kind of tree each runs from.
-  fromWorkspace: 66,
-  fromSideDirectory: 27,
+  fromWorkspace: 71,
+  fromSideDirectory: 25,
   fromStagedCopy: 21,
   // Jobs that run the upstream notifier, each held to `notifierProblems`.
   notifierJobs: 1,
@@ -757,6 +757,14 @@ function inspect(workflows) {
           if (/\b(?:cp|mv|ln|rsync|rm)\b[^|;&]*\$RUNNER_TEMP\/agent-tools(?!\/)/.test(line)) {
             flag(`rewrites the staged scripts outside the staging step: ${trimmed.slice(0, 120)}`);
           }
+          // The package is copied WHOLE or not at all. Its tools import each
+          // other — every gated one imports `./direct-run.mjs` — so a single
+          // file copied out on its own is ERR_MODULE_NOT_FOUND where it lands.
+          // (The router is the one file delivered alone, and by a sparse
+          // checkout, never by a copy: router-checkout.test.mjs.)
+          if (/\b(?:cp|mv|ln|rsync|install|tar)\b[^|;&]*?(?:^|[\s"'=/])scripts\/agent\/[^\s"'|;&]/.test(trimmed)) {
+            flag(`copies part of ${SCRIPTS} rather than the whole package: ${trimmed.slice(0, 120)}`);
+          }
 
           // ---- running a harness script -------------------------------------------
           if (/^\[ -f /.test(trimmed)) continue; // an existence test runs nothing
@@ -960,6 +968,17 @@ const MUTATIONS = [
       - run: node scripts/agent/set-state.mjs "$PR" blocked
 `),
     expect: /agent-sweep\.yml › extra: runs set-state\.mjs, which reads the configuration, from the workspace, whose checkout does not include \.github\/agent-harness/,
+  },
+  {
+    name: "one tool is copied out of the package on its own",
+    files: () =>
+      edit("agent-fix.yml", (t) =>
+        replaceOnce(
+          t,
+          '          cp -R ./scripts/agent "${{ runner.temp }}/agent-tools"\n',
+          '          cp -R ./scripts/agent "${{ runner.temp }}/agent-tools"\n          cp ./scripts/agent/set-state.mjs "${{ runner.temp }}/set-state.mjs"\n',
+        )),
+    expect: /agent-fix\.yml › fix: copies part of scripts\/agent rather than the whole package: cp \.\/scripts\/agent\/set-state\.mjs/,
   },
   {
     name: "an invocation moves from the trusted side directory to the pull request's workspace",
@@ -1230,7 +1249,7 @@ const MUTATIONS = [
     name: "the dispatcher's ref, not `main`, under the workspace the toolchain action is used from",
     files: () =>
       edit("agent-implement.yml", (t) =>
-        replaceOnce(t, "          ref: main # not the dispatcher's ref: the prompt says \"the checkout is on `main`\"\n", "")),
+        replaceOnce(t, "          ref: main # not the dispatcher's ref: the prompt says the checkout is `main`\n", "")),
     expect: /agent-implement\.yml › implement: uses the toolchain action from the workspace, which is not trusted at that step: it has no ref, and the workflow runs on workflow_dispatch/,
   },
   {

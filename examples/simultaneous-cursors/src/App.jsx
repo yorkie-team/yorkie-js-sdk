@@ -21,6 +21,7 @@ import {
   toInk,
   touchesStroke,
 } from './ink';
+import { createLocal } from './local';
 import './App.css';
 
 const rpcAddr = import.meta.env.VITE_YORKIE_API_ADDR;
@@ -69,8 +70,12 @@ const initialPresence = {
 // with `points` encoded as one string.
 const initialRoot = { strokes: [] };
 
-// Moves smaller than this fraction of the viewport are not sent.
+// Moves smaller than this fraction of the viewport are not sent while the
+// pointer keeps moving...
 const moveThreshold = 0.002;
+// ...but once it has rested this many milliseconds, its exact position is
+// sent, so peers see the cursor stop where it stopped.
+const restDelay = 100;
 // Points closer than this many pixels to the last one are not added.
 const pointSpacing = 3;
 // Presence is sent at most this often; peers glide in between.
@@ -119,17 +124,25 @@ function CursorsCanvas() {
       })),
     [root],
   );
-  // The strokes peers are drawing now, ourselves included.
+  // The strokes peers are drawing now. Our own is drawn from `localStroke`.
   const live = useMemo(
     () =>
       presences
-        .filter(({ presence }) => presence.stroke)
+        .filter(
+          ({ clientID, presence }) => clientID !== myID && presence.stroke,
+        )
         .map(({ clientID, presence }) => ({
           ...presence.stroke,
           color: peerColor(clientID),
         })),
-    [presences],
+    [presences, myID],
   );
+
+  // Our own pointer (`{ x, y, overInteractive }` in pixels, or null) and
+  // stroke in progress, drawn as pointer events arrive. Presence is sent at
+  // most every `sendInterval`, so drawing ourselves from it would step.
+  const [localPointer] = useState(() => createLocal(null));
+  const [localStroke] = useState(() => createLocal(null));
 
   // The event handlers below are set up once, so they read what changes
   // through refs.
@@ -158,6 +171,17 @@ function CursorsCanvas() {
     // holds when each point was drawn, for fading ink.
     let stroke = null;
 
+    // `showStroke` redraws our stroke after it changes. `points` is shared,
+    // not copied: the ink layer reads it when it next draws.
+    const showStroke = () =>
+      localStroke.set(
+        stroke && {
+          tool: stroke.tool,
+          color: colorRef.current,
+          points: stroke.points,
+        },
+      );
+
     const addPoint = (pos) => {
       const { points } = stroke;
       // Fading ink held still can fade to nothing; then any point is new.
@@ -169,6 +193,7 @@ function CursorsCanvas() {
       points.push(toInk(pos.x), toInk(pos.y));
       stroke.times.push(performance.now());
       stroke.dirty = true;
+      showStroke();
     };
 
     // `erase` removes every committed stroke under the pointer, whoever
@@ -205,8 +230,10 @@ function CursorsCanvas() {
         : null;
       erasing = tool === 'eraser';
       if (erasing) erase(pos);
+      localPointer.set({ x: e.clientX, y: e.clientY, overInteractive: false });
+      showStroke();
       pending = null;
-      lastSent = pos;
+      lastSent = { ...pos, overInteractive: false };
       lastSentAt = performance.now();
       update((_, p) =>
         p.set({
@@ -230,6 +257,9 @@ function CursorsCanvas() {
           commitStroke(root, tool, colorRef.current, points);
           p.set({ pointerDown: false, stroke: null, ...extra });
         });
+        // The update above has already put the stroke in `root`, so the
+        // saved layer draws it before the live layer next redraws.
+        showStroke();
         return;
       }
       if (stroke) stroke.ended = true;
@@ -238,15 +268,15 @@ function CursorsCanvas() {
     const onUp = () => finish();
     const onLeave = () => {
       pending = null;
+      localPointer.set(null);
       finish({ cursor: null });
     };
 
     const onMove = (e) => {
       const pos = position(e);
-      pending = {
-        ...pos,
-        overInteractive: !!e.target.closest(interactiveSelector),
-      };
+      const overInteractive = !!e.target.closest(interactiveSelector);
+      localPointer.set({ x: e.clientX, y: e.clientY, overInteractive });
+      pending = { ...pos, overInteractive, at: performance.now() };
       if (stroke && !stroke.ended) addPoint(pos);
     };
 
@@ -264,6 +294,7 @@ function CursorsCanvas() {
           stroke.times.splice(0, drop);
           stroke.points.splice(0, drop * 2);
           stroke.dirty = true;
+          showStroke();
         }
       }
       if (erasing && pending) erase(pending);
@@ -275,12 +306,21 @@ function CursorsCanvas() {
           pending.x - lastSent.x,
           pending.y - lastSent.y,
         );
-        if (moved >= moveThreshold) {
+        // A small move is held back, not dropped: it is sent once more
+        // moves add up past the threshold, or once the pointer rests.
+        const rested = now - pending.at >= restDelay;
+        if (
+          moved >= moveThreshold ||
+          (rested && moved > 0) ||
+          pending.overInteractive !== lastSent.overInteractive
+        ) {
           lastSent = pending;
           patch.cursor = { x: pending.x, y: pending.y };
           patch.overInteractive = pending.overInteractive;
+          pending = null;
+        } else if (rested) {
+          pending = null;
         }
-        pending = null;
       }
 
       let chunk = null;
@@ -318,6 +358,8 @@ function CursorsCanvas() {
         if (chunk) commitStroke(root, tool, colorRef.current, chunk);
         p.set(patch);
       });
+      // A committed chunk or a capped stroke leaves fewer points to draw.
+      if ('stroke' in patch) showStroke();
     };
     frameID = requestAnimationFrame(loop);
 
@@ -338,7 +380,7 @@ function CursorsCanvas() {
       window.removeEventListener('pointermove', onMove);
       root.removeEventListener('pointerleave', onLeave);
     };
-  }, [loading, error, update]);
+  }, [loading, error, update, localPointer, localStroke]);
 
   const peers = presences.map(({ clientID, presence }) => ({
     clientID,
@@ -361,7 +403,7 @@ function CursorsCanvas() {
           running, then reload.
         </p>
       )}
-      <InkCanvas saved={saved} live={live} />
+      <InkCanvas saved={saved} live={live} local={localStroke} />
       {peers.map(({ clientID, presence, color, isMe }) => (
         <Cursor
           key={clientID}
@@ -372,7 +414,7 @@ function CursorsCanvas() {
           overInteractive={presence.overInteractive}
           color={color}
           viewport={viewport}
-          animate={!isMe}
+          pointer={isMe ? localPointer : undefined}
         />
       ))}
       {me && (
