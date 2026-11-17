@@ -5,6 +5,11 @@ threads, with a rail that shows who is in which channel right now.
 
 <img width="500" alt="React Chat" src="./thumbnail.jpg">
 
+The thumbnail is a headless Chromium capture (Playwright, 2026-11-18) of
+this example running against a local server: two panes side by side, a
+third person in #design, a short conversation with a merged reaction and a
+reply, and one pane typing.
+
 ## What to try
 
 Open the page in two tabs (or add a user on yorkie.dev), then:

@@ -853,3 +853,68 @@ h2 {
     box-shadow: none;
   }
 }
+
+.switch__error {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--danger);
+}
+
+/* Review fixes: contrast, measure, orange scope, thread width, motion. */
+.composer__input::placeholder,
+.rail__you {
+  color: var(--gray-700);
+}
+
+.message__text {
+  max-width: 72ch;
+}
+
+.channel__switch .rail__hash {
+  color: var(--orange-dark);
+}
+
+.typing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.typing__dots {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.typing__dots .dot {
+  width: 6px;
+  height: 6px;
+}
+
+/* Less than ~280px of messages would be left beside the sheet: cover. */
+@container chat (max-width: 775px) {
+  .thread {
+    width: 100%;
+    border-left: 0;
+    box-shadow: none;
+  }
+}
+
+/* The signature moment: a person's dot arrives on the row they moved to. */
+@keyframes dot-arrive {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+
+.rail .dot,
+.typing__dots .dot {
+  animation: dot-arrive 0.36s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail .dot,
+  .typing__dots .dot {
+    animation: none;
+  }
+}
