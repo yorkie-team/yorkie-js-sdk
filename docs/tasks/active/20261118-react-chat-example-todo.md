@@ -122,3 +122,30 @@ Status: implemented on branch `react-chat-example`; verified with headless two-,
 - [x] **Step 3:** README (what it shows, the four things to try, keys, how to run), `thumbnail.jpg` 3:2 from a two-pane capture.
 - [x] **Step 4:** `pnpm lint:check`, `pnpm react-chat test`, `pnpm react-chat build`, `pnpm build:examples` succeed.
 - [x] **Step 5: Commit** `Fit the chat example to narrow panes and document it`.
+
+## Review
+
+- Code review (fresh reviewer, whole branch) and impeccable finish review
+  (two verdict rounds) ran after Task 5. Fixes landed as "Harden the chat
+  example against races and bad data", "Make presence read as navigation in
+  the chat example", and "Animate a chat dot leaving as well as arriving".
+- Checks: `pnpm react-chat test` (31 tests, incl. a two-replica reaction
+  merge), lint, build, `impeccable detect` (0 findings), and headless
+  checks: two-pane channel flow, offline catch-up, four panes joining at
+  once (8/8 distinct identities), quick channel switching, sizes 1440x900,
+  1280x800, 640, 600x260, 480, 390x844, 300.
+- `pnpm build:examples` stops at `nextjs-scheduler` and `nextjs-presence`:
+  Next.js refuses to build because the pinned version has a known
+  vulnerability. Not touched by this branch; react-chat builds.
+
+## Follow-ups
+
+- `@yorkie-js/react` `DocumentProvider`: unmounting before the attach
+  resolves skips the detach, so the document stays attached and a later
+  attach of the same key fails (`ErrAlreadyAttached`). The example works
+  around it by holding the rail while a channel opens.
+- yorkie-team.github.io: add `react-chat` to `STATIC_EXAMPLES`, a
+  `codes/examples.ts` entry, `pages/examples/chat.tsx`, and move
+  `YORKIE_JS_EXAMPLES_REF` to this branch's merge commit.
+- Upgrade Next.js in `nextjs-scheduler` and `nextjs-presence` so
+  `pnpm build:examples` passes again.
