@@ -11,6 +11,7 @@ import {
   type ChatPresence,
   emptyReactions,
   type Message,
+  newId,
   toggleReaction,
 } from './model';
 import ThreadSheet from './ThreadSheet';
@@ -65,7 +66,7 @@ export default function ChannelView({
   const thread = threadId ? messages.find((m) => m.id === threadId) : undefined;
 
   const author = () => ({
-    id: crypto.randomUUID(),
+    id: newId(),
     userId: me.userId,
     name: me.name,
     color: me.color,

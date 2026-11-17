@@ -4,13 +4,16 @@ import {
   addMessage,
   addReply,
   channelKey,
-  distinctFrom,
   emptyReactions,
   type ChannelRoot,
+  type ChatPresence,
   cleanText,
   makeUser,
   type Message,
   messagesMax,
+  newId,
+  type PeerColor,
+  resolveIdentity,
   roomPrefix,
   seedRoot,
   toggleReaction,
@@ -76,6 +79,26 @@ describe('keys', () => {
   });
 });
 
+describe('newId', () => {
+  it('falls back when randomUUID is missing', () => {
+    const original = crypto.randomUUID;
+    Object.defineProperty(crypto, 'randomUUID', {
+      value: undefined,
+      configurable: true,
+    });
+    try {
+      const a = newId();
+      expect(a).toMatch(/^[a-z0-9]+-[a-z0-9]+$/);
+      expect(newId()).not.toBe(a);
+    } finally {
+      Object.defineProperty(crypto, 'randomUUID', {
+        value: original,
+        configurable: true,
+      });
+    }
+  });
+});
+
 describe('makeUser', () => {
   it('picks from the person colors', () => {
     expect(makeUser(() => 0).color).toBe('blue');
@@ -88,28 +111,55 @@ describe('makeUser', () => {
   });
 });
 
-describe('distinctFrom', () => {
+describe('resolveIdentity', () => {
+  const person = (
+    userId: string,
+    name: string,
+    color: PeerColor,
+    joinedAt = '2026-11-18T10:00:00.000Z',
+  ): ChatPresence => ({
+    userId,
+    name,
+    color,
+    joinedAt,
+    channelId: 'general',
+    typing: false,
+  });
+
   it('keeps a free name and color', () => {
-    expect(
-      distinctFrom({ name: 'Ari', color: 'blue' }, [
-        { name: 'Ben', color: 'green' },
-      ]),
-    ).toEqual({ name: 'Ari', color: 'blue' });
+    const me = person('b', 'Ari', 'blue');
+    expect(resolveIdentity(me, [person('a', 'Ben', 'green')])).toEqual({
+      name: 'Ari',
+      color: 'blue',
+    });
   });
 
-  it('moves off a taken name and color', () => {
-    expect(
-      distinctFrom({ name: 'Ari', color: 'blue' }, [
-        { name: 'Ari', color: 'blue' },
-      ]),
-    ).toEqual({ name: 'Ben', color: 'green' });
+  it('moves the later joiner off a clash', () => {
+    const early = person('z', 'Ari', 'blue', '2026-11-18T10:00:00.000Z');
+    const late = person('a', 'Ari', 'blue', '2026-11-18T10:00:01.000Z');
+    expect(resolveIdentity(early, [late])).toEqual({
+      name: 'Ari',
+      color: 'blue',
+    });
+    expect(resolveIdentity(late, [early])).toEqual({
+      name: 'Ben',
+      color: 'green',
+    });
   });
 
-  it('keeps its own when every color is taken', () => {
+  it('breaks a tie by userId, so both panes agree', () => {
+    const a = person('a', 'Gus', 'yellow');
+    const b = person('b', 'Gus', 'blue');
+    expect(resolveIdentity(a, [b]).name).toBe('Gus');
+    expect(resolveIdentity(b, [a]).name).not.toBe('Gus');
+    expect(resolveIdentity(b, [a]).color).toBe('blue');
+  });
+
+  it('keeps its color when every color is taken', () => {
     const others = (['blue', 'green', 'purple', 'yellow', 'red'] as const).map(
-      (color, i) => ({ name: `P${i}`, color }),
+      (color, i) => person(`0${i}`, `P${i}`, color),
     );
-    expect(distinctFrom({ name: 'Ari', color: 'red' }, others).color).toBe(
+    expect(resolveIdentity(person('z', 'Ari', 'red'), others).color).toBe(
       'red',
     );
   });

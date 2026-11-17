@@ -41,6 +41,8 @@ export type ChatPresence = {
   userId: string;
   name: string;
   color: PeerColor;
+  /** When this pane joined (ISO). On a name or color clash, the earlier keeps it. */
+  joinedAt: string;
   channelId: string;
   typing: boolean;
 };
@@ -108,41 +110,61 @@ export function channelKey(prefix: string, channelId: string): string {
 }
 
 /**
+ * `newId` is a random id. `crypto.randomUUID` exists only in secure contexts,
+ * so a page opened over plain http (a phone on the LAN, say) falls back.
+ */
+export function newId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+/**
  * `makeUser` makes a new person for this pane. It is kept in memory only:
  * the homepage's panes share one origin and one tab, so stored identity would
  * make every pane the same person.
  */
 export function makeUser(
   random: () => number = Math.random,
-): Pick<ChatPresence, 'userId' | 'name' | 'color'> {
+): Pick<ChatPresence, 'userId' | 'name' | 'color' | 'joinedAt'> {
   const pick = <T>(list: ReadonlyArray<T>) =>
     list[Math.floor(random() * list.length) % list.length];
   return {
-    userId: crypto.randomUUID(),
+    userId: newId(),
     name: pick(names),
     color: pick(peerColors),
+    joinedAt: new Date().toISOString(),
   };
 }
 
+/** Whether `other` keeps its name and color when it collides with `me`. */
+function outranks(other: ChatPresence, me: ChatPresence): boolean {
+  if (other.joinedAt !== me.joinedAt) return other.joinedAt < me.joinedAt;
+  return other.userId < me.userId;
+}
+
 /**
- * `distinctFrom` returns a name and color for `me` that nobody else in
- * `others` has, keeping its own where they are free. Two panes picking at
- * random can land on the same color, which would hide who is who.
+ * `resolveIdentity` returns the name and color `me` should have among
+ * `others`. Random picks can collide, and panes that open together cannot see
+ * each other yet when they pick, so every pane checks again as people arrive:
+ * on a collision the one who joined later moves to a name or color nobody
+ * has (ties go by `userId`), so all panes settle the same way.
  */
-export function distinctFrom(
-  me: Pick<ChatPresence, 'name' | 'color'>,
-  others: Array<Pick<ChatPresence, 'name' | 'color'>>,
+export function resolveIdentity(
+  me: ChatPresence,
+  others: Array<ChatPresence>,
 ): Pick<ChatPresence, 'name' | 'color'> {
+  const seniors = others.filter((o) => outranks(o, me));
   const usedNames = new Set(others.map((p) => p.name));
   const usedColors = new Set(others.map((p) => p.color));
-  return {
-    name: usedNames.has(me.name)
-      ? (names.find((n) => !usedNames.has(n)) ?? me.name)
-      : me.name,
-    color: usedColors.has(me.color)
-      ? (peerColors.find((c) => !usedColors.has(c)) ?? me.color)
-      : me.color,
-  };
+  const name = seniors.some((o) => o.name === me.name)
+    ? (names.find((n) => !usedNames.has(n)) ?? me.name)
+    : me.name;
+  const color = seniors.some((o) => o.color === me.color)
+    ? (peerColors.find((c) => !usedColors.has(c)) ?? me.color)
+    : me.color;
+  return { name, color };
 }
 
 const seedText: Record<string, string> = {

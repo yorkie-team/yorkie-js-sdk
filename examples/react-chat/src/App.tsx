@@ -17,8 +17,8 @@ import {
   type ChannelRoot,
   type ChatPresence,
   defaultChannels,
-  distinctFrom,
   makeUser,
+  resolveIdentity,
   roomPrefix,
   seedRoot,
   type WorkspaceRoot,
@@ -73,7 +73,6 @@ function Workspace() {
   const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
   const offlineRef = useRef(false);
   const typing = useRef(false);
-  const settled = useRef(false);
   const channelDoc = useRef<Document<ChannelRoot> | undefined>(undefined);
 
   const people = useMemo(
@@ -89,16 +88,17 @@ function Workspace() {
     [people, openId],
   );
 
-  // Once, on joining: move off a name or color someone here already has.
+  // Whenever someone arrives: if we clash with someone who joined earlier,
+  // move to a free name and color. Panes opened together cannot see each
+  // other when they pick, so this cannot be done only once.
   useEffect(() => {
-    if (loading || settled.current) return;
-    settled.current = true;
+    if (loading || offline) return;
     const others = people.filter((p) => p.userId !== me.userId);
-    const next = distinctFrom(me, others);
+    const next = resolveIdentity(me, others);
     if (next.name !== me.name || next.color !== me.color) {
       update((_, presence) => presence.set(next));
     }
-  }, [loading, people, me, update]);
+  }, [loading, offline, people, me, update]);
 
   const openChannel = useCallback(
     (channelId: string) => {
