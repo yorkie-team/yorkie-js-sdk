@@ -111,9 +111,19 @@ export default function ChannelView({
     onWrite(r.id);
   };
 
-  const closeThread = () => {
-    setThreadId(undefined);
+  // Focus goes back to the thread's trigger only after the sheet is gone:
+  // in narrow panes the sheet hides what it covers, the trigger included,
+  // so focusing it in the click handler would do nothing.
+  const restoreFocus = useRef(false);
+  useEffect(() => {
+    if (threadId || !restoreFocus.current) return;
+    restoreFocus.current = false;
     threadTrigger.current?.focus();
+  }, [threadId]);
+
+  const closeThread = () => {
+    restoreFocus.current = true;
+    setThreadId(undefined);
   };
 
   return (
