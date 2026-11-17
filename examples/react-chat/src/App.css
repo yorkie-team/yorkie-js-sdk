@@ -512,7 +512,11 @@ h2 {
   position: absolute;
   top: -12px;
   right: 16px;
-  display: none;
+  display: flex;
+  /* Hidden but still in the tab order, so a keyboard can reach a message's
+   * first reaction or reply: focusing it reveals the bar. */
+  opacity: 0;
+  pointer-events: none;
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--gray-400);
@@ -523,7 +527,8 @@ h2 {
 
 .message:hover .message__actions,
 .message:focus-within .message__actions {
-  display: flex;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* Touch screens have no hover: keep the actions visible. */
@@ -531,6 +536,8 @@ h2 {
   .message__actions {
     position: static;
     display: flex;
+    opacity: 1;
+    pointer-events: auto;
     align-self: flex-start;
     border: 0;
     box-shadow: none;
@@ -892,12 +899,17 @@ h2 {
   height: 6px;
 }
 
-/* Less than ~280px of messages would be left beside the sheet: cover. */
+/* Less than ~280px of messages would be left beside the sheet: cover, and
+ * take what it covers out of the tab order. */
 @container chat (max-width: 775px) {
   .thread {
     width: 100%;
     border-left: 0;
     box-shadow: none;
+  }
+
+  .channel:has(> .thread) > :not(.thread) {
+    visibility: hidden;
   }
 }
 

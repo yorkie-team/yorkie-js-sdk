@@ -221,7 +221,10 @@ export function addMessage(root: ChannelRoot, m: Message): void {
 
 /** `addReply` appends `r` to the thread of `messageId`, if it is still there. */
 export function addReply(root: ChannelRoot, messageId: string, r: Reply): void {
-  root.messages.find((m) => m.id === messageId)?.replies.push(r);
+  // The stored message may be malformed (the room is public): skip it
+  // rather than throw.
+  const replies = root.messages.find((m) => m?.id === messageId)?.replies;
+  if (isList(replies)) replies.push(r);
 }
 
 /**
@@ -242,10 +245,12 @@ export function toggleReaction(
   emoji: string,
   userId: string,
 ): void {
-  const people = root.messages.find((m) => m.id === messageId)?.reactions[
-    emoji
-  ] as JSONObject<Record<string, true>> | undefined;
-  if (!people) return;
+  const reactions = root.messages.find((m) => m?.id === messageId)?.reactions;
+  if (!isRecord(reactions)) return;
+  const people = reactions[emoji] as
+    | JSONObject<Record<string, true>>
+    | undefined;
+  if (!isRecord(people)) return;
   if (people[userId]) {
     delete people[userId];
   } else {
@@ -302,8 +307,10 @@ export function readMessage(raw: unknown): Message | undefined {
   if (!base || !isRecord(raw)) return undefined;
   const reactions: Message['reactions'] = {};
   if (isRecord(raw.reactions)) {
+    // Only the fixed emoji set: a key is drawn as a chip label, and another
+    // client could store any string there.
     for (const [emoji, people] of Object.entries(raw.reactions)) {
-      if (isRecord(people)) {
+      if (emojis.includes(emoji) && isRecord(people)) {
         reactions[emoji] = Object.fromEntries(
           Object.keys(people).map((id) => [id, true as const]),
         );
@@ -311,7 +318,7 @@ export function readMessage(raw: unknown): Message | undefined {
     }
   }
   const replies = isList(raw.replies)
-    ? Array.from(raw.replies, readReply).filter((r): r is Reply => !!r)
+    ? uniqueById(Array.from(raw.replies, readReply))
     : [];
   return { ...base, reactions, replies };
 }
@@ -319,7 +326,22 @@ export function readMessage(raw: unknown): Message | undefined {
 /** `readMessages` is a channel's stored messages as they may be drawn. */
 export function readMessages(raw: unknown): Array<Message> {
   if (!isList(raw)) return [];
-  return Array.from(raw, readMessage).filter((m): m is Message => !!m);
+  return uniqueById(Array.from(raw, readMessage));
+}
+
+/**
+ * `uniqueById` drops missing entries and any entry whose id came earlier:
+ * ids are React keys and the write helpers act on the first match.
+ */
+function uniqueById<T extends { id: string }>(
+  list: Array<T | undefined>,
+): Array<T> {
+  const seen = new Set<string>();
+  return list.filter((x): x is T => {
+    if (!x || seen.has(x.id)) return false;
+    seen.add(x.id);
+    return true;
+  });
 }
 
 /**

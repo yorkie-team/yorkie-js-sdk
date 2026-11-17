@@ -241,6 +241,50 @@ describe('readMessages', () => {
   });
 });
 
+describe('reading a public room', () => {
+  it('keeps only the fixed emoji set', () => {
+    const m = readMessage({
+      ...message('x'),
+      reactions: {
+        '👍': { a: true },
+        ['\u202E' + 'x'.repeat(50)]: { b: true },
+      },
+    });
+    expect(Object.keys(m?.reactions ?? {})).toEqual(['👍']);
+  });
+
+  it('drops messages and replies with a repeated id', () => {
+    const r = {
+      id: 'r',
+      userId: 'u',
+      name: 'A',
+      color: 'blue',
+      text: 't',
+      at: '',
+    };
+    const list = readMessages([
+      { ...message('m'), replies: [r, r] },
+      message('m'),
+    ]);
+    expect(list).toHaveLength(1);
+    expect(list[0].replies).toHaveLength(1);
+  });
+
+  it('skips writes to a malformed message instead of throwing', () => {
+    const doc = new Document<ChannelRoot>('test-bad');
+    doc.update((root) => {
+      root.messages = [{ id: 'bad' }] as unknown as JSONArray<Message>;
+    });
+    const { id, userId, name, color, text, at } = message('r1');
+    expect(() =>
+      doc.update((root) => {
+        toggleReaction(root, 'bad', '👍', 'u1');
+        addReply(root, 'bad', { id, userId, name, color, text, at });
+      }),
+    ).not.toThrow();
+  });
+});
+
 describe('readChannels', () => {
   it('keeps usable channels', () => {
     expect(readChannels([{ id: 'ops', name: 'ops' }])).toEqual([

@@ -48,10 +48,10 @@ Status: implemented on branch `react-chat-example`; verified with headless two-,
 **Interfaces:**
 - Produces (`src/model.ts`):
   - `type PeerColor = 'blue' | 'green' | 'purple' | 'yellow' | 'red'`
-  - `type Reply = { id; userId; name; color: PeerColor | 'orange'; text; at: number }`
+  - `type Reply = { id; userId; name; color: PeerColor | 'orange'; text; at: string }  // ISO; a ms number overflows Yorkie's int32`
   - `type Message = Reply & { reactions: Record<string, Record<string, true>>; replies: Reply[] }`
   - `type ChannelInfo = { id: string; name: string }`, `type WorkspaceRoot = { channels: ChannelInfo[] }`, `type ChannelRoot = { messages: Message[] }`
-  - `type ChatPresence = { userId; name; color: PeerColor; channelId: string; typing: boolean }`
+  - `type ChatPresence = { userId; name; color: PeerColor; joinedAt: string; channelId: string; typing: boolean }`
   - `defaultChannels: ChannelInfo[]`, `textMax = 500`, `messagesMax = 200`, `emojis = ['👍', '🎉', '👀', '❤️', '😂']`
   - `cleanText(raw: string): string | undefined`
   - `roomPrefix(search: string, now: Date): string`, `channelKey(prefix: string, channelId: string): string`
@@ -64,9 +64,9 @@ Status: implemented on branch `react-chat-example`; verified with headless two-,
   - `cleanText`: `'  a\u0000b \n c '` → `'ab c'`; `'‮x'` → `'x'`; `'   '` → `undefined`; 600 × `'가'` → length 500 code points; an emoji counts as one.
   - `roomPrefix('', new Date('2026-11-18T10:00:00Z'))` → `'react-chat-20261118'`; `roomPrefix('?key=team', …)` → `'team'`; `channelKey('team', 'design')` → `'team-design'`.
   - `makeUser(() => 0)` color is `'blue'`; across 100 calls with `Math.random` no color is `'orange'`.
-  - `seedRoot('general', now).messages` has 1 message from `userId: 'yorkie'`, `color: 'orange'`, text mentioning "another pane" and "offline"; `seedRoot('design', now)` has 1 message.
+  - `seedRoot('general', now).messages` has 1 message from `userId: 'yorkie'`, `color: 'orange'`, text mentioning "another tab" and "offline"; `seedRoot('design', now)` has 1 message.
   - `addMessage` 201 times → length 200 and the first remaining is the 2nd added.
-  - `toggleReaction` by `u1` then `u2` → `reactions['👍']` has 2 keys; again by `u1` → 1 key; again by `u2` → emoji key removed.
+  - `toggleReaction` by `u1` then `u2` → `reactions['👍']` has 2 keys; again by `u1` → 1 key; again by `u2` → 0 people, and `reactions['👍']` stays as `{}` (never deleted: a concurrent first reaction would race to recreate it).
   - `addReply` → `replies` length 1 on the right message; unknown id → no change.
 - [x] **Step 3: Run** `pnpm react-chat test` → FAIL (module missing).
 - [x] **Step 4: Implement `model.ts`.** Trim the oldest with `getElementByIndex(0)` + `deleteByID` on Yorkie arrays; delete a reaction key with `delete obj[key]`.
@@ -110,8 +110,8 @@ Status: implemented on branch `react-chat-example`; verified with headless two-,
 **Interfaces:**
 - Consumes: `useYorkie().client`, workspace `doc`, channel `doc` from `onDoc`.
 
-- [x] **Step 1:** Header switch "Online / Offline" (`role="switch"`). Going offline: `updateWorkspace` with `typing: false`, then `client.changeSyncMode(doc, SyncMode.Manual)` on the channel doc and the workspace doc. Going online: `SyncMode.Realtime` on both, then `client.sync(channelDoc)`; clear `pendingIds` when it resolves.
-- [x] **Step 2:** While offline: messages sent get their id into `pendingIds` and render with a "Not sent yet" mark; rail channel rows are disabled with a title "Reconnect to switch channels".
+- [x] **Step 1:** Header button "Go offline" / "Go online" (a plain button: its label names the action). Going offline: `updateWorkspace` with `typing: false`, then `client.changeSyncMode(doc, SyncMode.Manual)` on the channel doc and the workspace doc. Going online: `SyncMode.Realtime` on both, then `client.sync(channelDoc)`; clear `pendingIds` when it resolves.
+- [x] **Step 2:** While offline: messages sent get their id into `pendingIds` and render with a "Not sent yet" mark; rail channel rows are disabled with a title "Go online to switch channels".
 - [x] **Step 3: Verify** two tabs: A offline, B sees A leave; A sends two messages; A online → B sees both and A back in the rail.
 - [x] **Step 4: Commit** `Let a chat pane go offline and catch up`.
 

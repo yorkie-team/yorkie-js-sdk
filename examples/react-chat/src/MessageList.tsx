@@ -80,10 +80,13 @@ export default function MessageList({
   const pinned = useRef(true);
   const pickerTrigger = useRef<HTMLButtonElement | undefined>(undefined);
   const [pickerFor, setPickerFor] = useState<string | undefined>(undefined);
+  // Keyed on the newest message, not the count: at the cap a new message
+  // replaces the oldest and the count stays the same.
+  const newest = messages.length ? messages[messages.length - 1].id : '';
   useLayoutEffect(() => {
     const el = list.current;
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+  }, [newest]);
 
   const closePicker = () => {
     setPickerFor(undefined);

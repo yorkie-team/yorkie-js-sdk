@@ -94,7 +94,11 @@ export default function ChannelRail({
   const leaving = useLeavingDots(people);
 
   useEffect(() => {
-    if (shown) rail.current?.querySelector<HTMLElement>('button')?.focus();
+    if (shown) {
+      rail.current
+        ?.querySelector<HTMLElement>('button:not(:disabled)')
+        ?.focus();
+    }
   }, [shown]);
 
   return (
