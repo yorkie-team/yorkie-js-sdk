@@ -18,5 +18,15 @@
   that reads back as a bigint; keep timestamps as ISO strings.
 - Reading `array[-1]` on a Yorkie array proxy throws
   (`out of index: tree size 1, index -1`); guard `i > 0` before `[i - 1]`.
+- `crypto.randomUUID` is missing outside secure contexts: an iframe in an
+  `about:blank` wrapper, or the dev server opened over a LAN IP, rendered
+  a blank page. Use a fallback id.
+- Picking an identity once on join is not enough: panes opened together
+  cannot see each other yet. Recheck on every presence change and let the
+  later joiner (`joinedAt`, then `userId`) move, so all panes agree.
+- Two watch streams per tab hit Chrome's six-connections-per-host limit over
+  HTTP/1.1 at three tabs: one tab stays on "Opening…" and presence never
+  converges. api.yorkie.dev is HTTP/2. Test many local clients in separate
+  browser contexts.
 - yorkie.dev builds examples from the release tag unless
   `YORKIE_JS_EXAMPLES_REF` pins a commit.

@@ -56,7 +56,7 @@ Approach: one workspace Document plus one Document per channel.
 
 | Document key | Root | Presence |
 |---|---|---|
-| `react-chat-<YYYYMMDD>` (workspace) | `{ channels: [{ id, name }] }` | `{ userId, name, color, channelId, typing }` |
+| `react-chat-<YYYYMMDD>` (workspace) | `{ channels: [{ id, name }] }` | `{ userId, name, color, joinedAt, channelId, typing }` |
 | `react-chat-<YYYYMMDD>-<channelId>` | `{ messages: Message[] }` | none |
 
 - The date part follows the other examples (`react-todomvc-<YYYYMMDD>`), so
@@ -89,7 +89,15 @@ type Message = {
 
 Each pane is a new user on every load: a random `userId`, a name from a
 short list, and one of the five non-orange peer colors, chosen in memory.
-Orange is the brand accent and is never a person's color. `localStorage` and
+Orange is the brand accent and is never a person's color.
+
+Random picks collide, and panes that open together (as yorkie.dev's do)
+cannot see each other yet when they pick. So every pane rechecks whenever
+the presence list changes: on a clash with someone who joined earlier
+(`joinedAt`, ties broken by `userId`), it moves to a name or color nobody
+has. Every pane applies the same rule, so they settle on distinct names and
+colors. Ids come from `crypto.randomUUID` with a fallback, since it exists
+only in secure contexts. `localStorage` and
 `sessionStorage` cannot be used because the homepage panes share one origin
 and one tab, so stored identity would make all panes the same person.
 
@@ -162,6 +170,7 @@ The structure is the "presence rail" layout chosen on the decision page:
   link), a typing line ("Ben is typing…"), and the composer.
 - Thread: a 300px sheet from the right over the message column, with the
   parent message on top and a reply composer.
+- From 900px the thread sits beside the messages instead of over them.
 - Below 480px pane width the rail collapses behind a channel button in the
   header, and the thread sheet takes the full width.
 - Visual system: the yorkie.dev "Shared Canvas" (`DESIGN.md` in
@@ -196,6 +205,7 @@ Once a release tag contains that commit, the tag wins and the pin can go.
 | A daily key makes a public room: strangers on yorkie.dev can post anything | Chosen on purpose, matching the other examples. Input cleanup, length cap, plain-text rendering, no links; the room resets daily |
 | Nested `DocumentProvider`s: hooks inside the channel provider resolve to the channel document, not the workspace | One `YorkieProvider`, a workspace `DocumentProvider`, and a channel `DocumentProvider` (keyed by channel) inside it. Workspace presence and the update function are read above the channel provider and passed down as props. Offline uses `useYorkie().client` with each provider's `useDocument().doc`. `useYorkieDoc` is not used: it creates its own client and exposes neither the client nor the document. The `syncMode` prop is not used for the toggle: changing it re-attaches a new document |
 | Sender clocks differ, so `at` can misorder | Order is the array order, which the CRDT keeps; `at` is display only |
+| Two watch streams per pane (workspace + channel). Over HTTP/1.1 a browser opens at most six connections per host, so a third pane in one browser stalls against the local server | yorkie.dev's server is HTTP/2. The README says to use another browser or a private window locally |
 | Narrow and short panes (4 users on a laptop; the landing page embeds examples at about 590x250) | Rail collapses below 480px; the message list is the part that shrinks. Checked at 300, 480, 640px wide and at 600x260 |
 
 ### Design Decisions

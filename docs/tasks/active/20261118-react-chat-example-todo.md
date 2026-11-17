@@ -1,8 +1,10 @@
 **Created**: 2026-11-18
 
+Status: implemented on branch `react-chat-example`; verified with headless two-, three- and four-client checks against the local server.
+
 # React Chat Example Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add `examples/react-chat`, a Slack-like chat on Yorkie that shows presence, per-person reaction merge, persistence, and offline catch-up across side-by-side panes.
 
@@ -55,8 +57,8 @@
   - `seedRoot(channelId: string, now: Date): ChannelRoot`
   - `addMessage(root: ChannelRoot, m: Message): void`, `addReply(root: ChannelRoot, messageId: string, r: Reply): void`, `toggleReaction(root: ChannelRoot, messageId: string, emoji: string, userId: string): void`
 
-- [ ] **Step 1: Scaffold** — copy TodoMVC's config files; deps `@yorkie-js/react` and `@yorkie-js/sdk` (`workspace:*`), react/react-dom 19; devDeps as TodoMVC plus `vitest ^4.1.12`; scripts `dev`, `build` (`tsc && vite build`), `preview`, `test` (`vitest run`). `pnpm install` at root.
-- [ ] **Step 2: Write failing tests** in `model.test.ts` (mutators run inside `new Document(key).update(...)` from `@yorkie-js/sdk`):
+- [x] **Step 1: Scaffold** — copy TodoMVC's config files; deps `@yorkie-js/react` and `@yorkie-js/sdk` (`workspace:*`), react/react-dom 19; devDeps as TodoMVC plus `vitest ^4.1.12`; scripts `dev`, `build` (`tsc && vite build`), `preview`, `test` (`vitest run`). `pnpm install` at root.
+- [x] **Step 2: Write failing tests** in `model.test.ts` (mutators run inside `new Document(key).update(...)` from `@yorkie-js/sdk`):
   - `cleanText`: `'  a\u0000b \n c '` → `'ab c'`; `'‮x'` → `'x'`; `'   '` → `undefined`; 600 × `'가'` → length 500 code points; an emoji counts as one.
   - `roomPrefix('', new Date('2026-11-18T10:00:00Z'))` → `'react-chat-20261118'`; `roomPrefix('?key=team', …)` → `'team'`; `channelKey('team', 'design')` → `'team-design'`.
   - `makeUser(() => 0)` color is `'blue'`; across 100 calls with `Math.random` no color is `'orange'`.
@@ -64,10 +66,10 @@
   - `addMessage` 201 times → length 200 and the first remaining is the 2nd added.
   - `toggleReaction` by `u1` then `u2` → `reactions['👍']` has 2 keys; again by `u1` → 1 key; again by `u2` → emoji key removed.
   - `addReply` → `replies` length 1 on the right message; unknown id → no change.
-- [ ] **Step 3: Run** `pnpm react-chat test` → FAIL (module missing).
-- [ ] **Step 4: Implement `model.ts`.** Trim the oldest with `getElementByIndex(0)` + `deleteByID` on Yorkie arrays; delete a reaction key with `delete obj[key]`.
-- [ ] **Step 5: Run** `pnpm react-chat test` → PASS; `pnpm react-chat build` → succeeds with a placeholder `App`.
-- [ ] **Step 6: Commit** `Add the react-chat example scaffold and data model`.
+- [x] **Step 3: Run** `pnpm react-chat test` → FAIL (module missing).
+- [x] **Step 4: Implement `model.ts`.** Trim the oldest with `getElementByIndex(0)` + `deleteByID` on Yorkie arrays; delete a reaction key with `delete obj[key]`.
+- [x] **Step 5: Run** `pnpm react-chat test` → PASS; `pnpm react-chat build` → succeeds with a placeholder `App`.
+- [x] **Step 6: Commit** `Add the react-chat example scaffold and data model`.
 
 ### Task 2: Workspace shell and presence rail
 
@@ -77,11 +79,11 @@
 - Consumes: Task 1 model.
 - Produces: `App` renders `YorkieProvider` → `DocumentProvider<WorkspaceRoot, ChatPresence>` (key `roomPrefix(...)`, `initialRoot { channels: defaultChannels }`, `initialPresence { ...makeUser(), channelId: 'general', typing: false }`) → `Workspace`. `Workspace` reads `useDocument()` once and passes `{ me, presences, updateWorkspace, workspaceDoc }` down. `ChannelRail({ channels, presences, me, openId, onOpen, disabled })`.
 
-- [ ] **Step 1:** Rail per design: workspace name, "Channels" list with one dot per person whose `channelId` matches (peer color, `aria-label` with names), open row with 2px orange inset edge, "Online · N" list, the user's own row "(you)". When `presences.length === 1` show "You're alone here. Add a user or open this page in another tab." in place of the online list.
-- [ ] **Step 2:** Opening a channel sets presence `channelId` and `typing: false` in one `update`.
-- [ ] **Step 3:** Loading, error (same copy pattern as TodoMVC) states.
-- [ ] **Step 4: Verify** `pnpm react-chat build` passes; `pnpm react-chat dev` with the local server: two tabs show each other's dots; switching a channel moves the dot.
-- [ ] **Step 5: Commit** `Show who is in which channel in the chat rail`.
+- [x] **Step 1:** Rail per design: workspace name, "Channels" list with one dot per person whose `channelId` matches (peer color, `aria-label` with names), open row with 2px orange inset edge, "Online · N" list, the user's own row "(you)". When `presences.length === 1` show "You're alone here. Add a user or open this page in another tab." in place of the online list.
+- [x] **Step 2:** Opening a channel sets presence `channelId` and `typing: false` in one `update`.
+- [x] **Step 3:** Loading, error (same copy pattern as TodoMVC) states.
+- [x] **Step 4: Verify** `pnpm react-chat build` passes; `pnpm react-chat dev` with the local server: two tabs show each other's dots; switching a channel moves the dot.
+- [x] **Step 5: Commit** `Show who is in which channel in the chat rail`.
 
 ### Task 3: Channel view, reactions, threads
 
@@ -91,13 +93,13 @@
 - Consumes: Task 2 props (`me`, `presences`, `updateWorkspace`).
 - Produces: `<DocumentProvider key={channelId} docKey={channelKey(prefix, channelId)} initialRoot={seedRoot(channelId, now)} disablePresence>` → `ChannelView({ channel, me, presences, setTyping(b: boolean), offline, pendingIds })`, exposing its `doc` upward through `onDoc(doc | undefined)` for Task 4.
 
-- [ ] **Step 1:** Header `# name` and "N here now" (presences in this channel).
-- [ ] **Step 2:** Message rows: initial avatar in the author color, name, `HH:MM`, text (`white-space: pre-wrap; overflow-wrap: anywhere`), reaction chips (`emoji count`, own reaction outlined in the user's color, `aria-pressed`), a react button opening the 5-emoji picker, "N replies" link. Auto-scroll to bottom on new messages only when already at bottom.
-- [ ] **Step 3:** Composer: `cleanText` on send, Enter sends, Shift+Enter newline, Enter during IME composition ignored, `maxLength` by code points shown when near the limit. `setTyping(true)` on input while non-empty, `false` on send, blur, empty, or 3s idle.
-- [ ] **Step 4:** Typing line: "Ben is typing…", "Ben and Cleo are typing…", "Several people are typing…" from presences in this channel other than me.
-- [ ] **Step 5:** Thread sheet: parent on top, replies, reply composer (no typing presence), close button and Esc; focus moves into the sheet and back to the "replies" link on close.
-- [ ] **Step 6: Verify** in two tabs: message, reaction from both at once shows 2, reply appears in both, new tab gets history.
-- [ ] **Step 7: Commit** `Add messages, reactions, and threads to the chat example`.
+- [x] **Step 1:** Header `# name` and "N here now" (presences in this channel).
+- [x] **Step 2:** Message rows: initial avatar in the author color, name, `HH:MM`, text (`white-space: pre-wrap; overflow-wrap: anywhere`), reaction chips (`emoji count`, own reaction outlined in the user's color, `aria-pressed`), a react button opening the 5-emoji picker, "N replies" link. Auto-scroll to bottom on new messages only when already at bottom.
+- [x] **Step 3:** Composer: `cleanText` on send, Enter sends, Shift+Enter newline, Enter during IME composition ignored, `maxLength` by code points shown when near the limit. `setTyping(true)` on input while non-empty, `false` on send, blur, empty, or 3s idle.
+- [x] **Step 4:** Typing line: "Ben is typing…", "Ben and Cleo are typing…", "Several people are typing…" from presences in this channel other than me.
+- [x] **Step 5:** Thread sheet: parent on top, replies, reply composer (no typing presence), close button and Esc; focus moves into the sheet and back to the "replies" link on close.
+- [x] **Step 6: Verify** in two tabs: message, reaction from both at once shows 2, reply appears in both, new tab gets history.
+- [x] **Step 7: Commit** `Add messages, reactions, and threads to the chat example`.
 
 ### Task 4: Offline toggle
 
@@ -106,17 +108,17 @@
 **Interfaces:**
 - Consumes: `useYorkie().client`, workspace `doc`, channel `doc` from `onDoc`.
 
-- [ ] **Step 1:** Header switch "Online / Offline" (`role="switch"`). Going offline: `updateWorkspace` with `typing: false`, then `client.changeSyncMode(doc, SyncMode.Manual)` on the channel doc and the workspace doc. Going online: `SyncMode.Realtime` on both, then `client.sync(channelDoc)`; clear `pendingIds` when it resolves.
-- [ ] **Step 2:** While offline: messages sent get their id into `pendingIds` and render with a "Not sent yet" mark; rail channel rows are disabled with a title "Reconnect to switch channels".
-- [ ] **Step 3: Verify** two tabs: A offline, B sees A leave; A sends two messages; A online → B sees both and A back in the rail.
-- [ ] **Step 4: Commit** `Let a chat pane go offline and catch up`.
+- [x] **Step 1:** Header switch "Online / Offline" (`role="switch"`). Going offline: `updateWorkspace` with `typing: false`, then `client.changeSyncMode(doc, SyncMode.Manual)` on the channel doc and the workspace doc. Going online: `SyncMode.Realtime` on both, then `client.sync(channelDoc)`; clear `pendingIds` when it resolves.
+- [x] **Step 2:** While offline: messages sent get their id into `pendingIds` and render with a "Not sent yet" mark; rail channel rows are disabled with a title "Reconnect to switch channels".
+- [x] **Step 3: Verify** two tabs: A offline, B sees A leave; A sends two messages; A online → B sees both and A back in the rail.
+- [x] **Step 4: Commit** `Let a chat pane go offline and catch up`.
 
 ### Task 5: Responsive layout, README, thumbnail, finish
 
 **Files:** Modify `src/App.css`, `src/ChannelRail.tsx`, `README.md`; create `thumbnail.jpg`
 
-- [ ] **Step 1:** Container query on the app root: below 480px the rail hides behind a "# general ▾" button in the channel header (opens it as an overlay list), the thread sheet goes full width. Message list is the flexible region at 600x260.
-- [ ] **Step 2:** Headless check (Playwright recipe in second-brain memory) at 1280x800, 600x260, 480x700, 300x700 with two clients; long-text and alone states; fix overlap/clipping.
-- [ ] **Step 3:** README (what it shows, the four things to try, keys, how to run), `thumbnail.jpg` 3:2 from a two-pane capture.
-- [ ] **Step 4:** `pnpm lint:check`, `pnpm react-chat test`, `pnpm react-chat build`, `pnpm build:examples` succeed.
-- [ ] **Step 5: Commit** `Fit the chat example to narrow panes and document it`.
+- [x] **Step 1:** Container query on the app root: below 480px the rail hides behind a "# general ▾" button in the channel header (opens it as an overlay list), the thread sheet goes full width. Message list is the flexible region at 600x260.
+- [x] **Step 2:** Headless check (Playwright recipe in second-brain memory) at 1280x800, 600x260, 480x700, 300x700 with two clients; long-text and alone states; fix overlap/clipping.
+- [x] **Step 3:** README (what it shows, the four things to try, keys, how to run), `thumbnail.jpg` 3:2 from a two-pane capture.
+- [x] **Step 4:** `pnpm lint:check`, `pnpm react-chat test`, `pnpm react-chat build`, `pnpm build:examples` succeed.
+- [x] **Step 5: Commit** `Fit the chat example to narrow panes and document it`.

@@ -842,3 +842,14 @@ h2 {
     transition: none;
   }
 }
+
+/* Wide panes have room for the thread beside the messages. */
+@container chat (min-width: 900px) {
+  .channel:has(.thread) {
+    padding-right: 320px;
+  }
+
+  .thread {
+    box-shadow: none;
+  }
+}
