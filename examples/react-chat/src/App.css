@@ -719,17 +719,19 @@ h2 {
 
 /* Narrow panes: the rail becomes a list over the channel. */
 @container chat (max-width: 479px) {
+  /* Hidden with visibility, not display: showing it again must not replay
+   * every dot's arrival. Hidden, it is also out of the tab order. */
   .rail {
     position: absolute;
     inset: 0 auto 0 0;
     z-index: 3;
-    display: none;
+    visibility: hidden;
     width: min(240px, 85%);
     box-shadow: 0 20px 24px -12px rgb(0 0 0 / 20%);
   }
 
   .chat__body[data-rail-open] .rail {
-    display: block;
+    visibility: visible;
   }
 
   .channel__title {
@@ -907,14 +909,30 @@ h2 {
   }
 }
 
-.rail .dot,
+@keyframes dot-leave {
+  to {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+
+/* Only the channel rows' dots move: the online list is a list. */
+.rail__channel .dot,
 .typing__dots .dot {
   animation: dot-arrive 0.36s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.rail__channel .dot[data-leaving] {
+  animation: dot-leave 0.36s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .rail .dot,
+  .rail__channel .dot,
   .typing__dots .dot {
     animation: none;
+  }
+
+  .rail__channel .dot[data-leaving] {
+    display: none;
   }
 }

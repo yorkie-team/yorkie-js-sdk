@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChannelInfo, ChatPresence } from './model';
 
 type Props = {
@@ -22,6 +22,44 @@ type Props = {
   onClose: () => void;
 };
 
+const leaveMs = 360;
+
+type Leaving = { key: string; channelId: string; color: ChatPresence['color'] };
+
+/**
+ * `useLeavingDots` keeps a dot on the row someone just left (moved channel or
+ * went away) for one exit animation, so the move reads as a move and not a
+ * jump cut.
+ */
+function useLeavingDots(people: Array<ChatPresence>): Array<Leaving> {
+  const before = useRef<Map<string, ChatPresence>>(new Map());
+  const [leaving, setLeaving] = useState<Array<Leaving>>([]);
+
+  useEffect(() => {
+    const now = new Map(people.map((p) => [p.userId, p]));
+    const gone: Array<Leaving> = [];
+    for (const [id, p] of before.current) {
+      if (now.get(id)?.channelId !== p.channelId) {
+        gone.push({
+          key: `${id}-${p.channelId}-${Date.now()}`,
+          channelId: p.channelId,
+          color: p.color,
+        });
+      }
+    }
+    before.current = now;
+    if (!gone.length) return;
+    const show = setTimeout(() => setLeaving((l) => [...l, ...gone]), 0);
+    setTimeout(
+      () => setLeaving((l) => l.filter((x) => !gone.includes(x))),
+      leaveMs,
+    );
+    return () => clearTimeout(show);
+  }, [people]);
+
+  return leaving;
+}
+
 function names(list: Array<ChatPresence>): string {
   return list.map((p) => p.name).join(', ');
 }
@@ -42,6 +80,7 @@ export default function ChannelRail({
   onClose,
 }: Props) {
   const rail = useRef<HTMLElement>(null);
+  const leaving = useLeavingDots(people);
 
   useEffect(() => {
     if (shown) rail.current?.querySelector<HTMLElement>('button')?.focus();
@@ -92,6 +131,16 @@ export default function ChannelRail({
                       title={p.name}
                     />
                   ))}
+                  {leaving
+                    .filter((l) => l.channelId === channel.id)
+                    .map((l) => (
+                      <span
+                        key={l.key}
+                        className="dot"
+                        data-color={l.color}
+                        data-leaving=""
+                      />
+                    ))}
                 </span>
               </button>
             </li>
