@@ -30,6 +30,7 @@
     "react-flow": "pnpm --filter=react-flow",
     "react-document-limit": "pnpm --filter=react-document-limit",
     "react-todomvc": "pnpm --filter=react-todomvc",
+    "react-chat": "pnpm --filter=react-chat",
     "react-revision": "pnpm --filter=react-revision",
     "react-page-view-counter": "pnpm --filter=react-page-view-counter",
     "react-polling-playground": "pnpm --filter=react-polling-playground",

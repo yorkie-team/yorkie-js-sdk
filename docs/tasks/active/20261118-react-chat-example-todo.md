@@ -18,7 +18,7 @@
 - Keys: workspace `react-chat-<YYYYMMDD>` (UTC date, like TodoMVC), channel `<prefix>-<channelId>`; `?key=<prefix>` overrides the prefix.
 - Channels fixed: `general`, `design`, `random`.
 - Person colors: `blue`, `green`, `purple`, `yellow`, `red`. Orange is brand only (open channel edge, send button, the `Yorkie` author).
-- Text: control/bidi characters stripped, whitespace collapsed, trimmed, at most 500 code points; empty → not sent. Plain text only, no links.
+- Text: control/bidi characters stripped, blanks collapsed, line breaks kept (at most one blank line), trimmed, at most 500 code points; empty → not sent. Plain text only, no links.
 - A channel keeps its newest 200 messages.
 - Identity in memory per load; no `localStorage`/`sessionStorage`.
 - Visual system: yorkie.dev Shared Canvas tokens (copy the `:root` block from `examples/react-todomvc/src/App.css`), Pretendard via the same CDN link as TodoMVC, light only, 1px hairlines, 4px controls, peer hues mean people.
@@ -48,8 +48,8 @@
   - `type Message = Reply & { reactions: Record<string, Record<string, true>>; replies: Reply[] }`
   - `type ChannelInfo = { id: string; name: string }`, `type WorkspaceRoot = { channels: ChannelInfo[] }`, `type ChannelRoot = { messages: Message[] }`
   - `type ChatPresence = { userId; name; color: PeerColor; channelId: string; typing: boolean }`
-  - `CHANNELS: ChannelInfo[]`, `TEXT_MAX = 500`, `MESSAGES_MAX = 200`, `EMOJIS = ['👍', '🎉', '👀', '❤️', '😂']`
-  - `cleanText(raw: string): string | null`
+  - `defaultChannels: ChannelInfo[]`, `textMax = 500`, `messagesMax = 200`, `emojis = ['👍', '🎉', '👀', '❤️', '😂']`
+  - `cleanText(raw: string): string | undefined`
   - `roomPrefix(search: string, now: Date): string`, `channelKey(prefix: string, channelId: string): string`
   - `makeUser(random?: () => number): Pick<ChatPresence, 'userId' | 'name' | 'color'>`
   - `seedRoot(channelId: string, now: Date): ChannelRoot`
@@ -57,7 +57,7 @@
 
 - [ ] **Step 1: Scaffold** — copy TodoMVC's config files; deps `@yorkie-js/react` and `@yorkie-js/sdk` (`workspace:*`), react/react-dom 19; devDeps as TodoMVC plus `vitest ^4.1.12`; scripts `dev`, `build` (`tsc && vite build`), `preview`, `test` (`vitest run`). `pnpm install` at root.
 - [ ] **Step 2: Write failing tests** in `model.test.ts` (mutators run inside `new Document(key).update(...)` from `@yorkie-js/sdk`):
-  - `cleanText`: `'  a\u0000b \n c '` → `'ab c'`; `'‮x'` → `'x'`; `'   '` → `null`; 600 × `'가'` → length 500 code points; an emoji counts as one.
+  - `cleanText`: `'  a\u0000b \n c '` → `'ab c'`; `'‮x'` → `'x'`; `'   '` → `undefined`; 600 × `'가'` → length 500 code points; an emoji counts as one.
   - `roomPrefix('', new Date('2026-11-18T10:00:00Z'))` → `'react-chat-20261118'`; `roomPrefix('?key=team', …)` → `'team'`; `channelKey('team', 'design')` → `'team-design'`.
   - `makeUser(() => 0)` color is `'blue'`; across 100 calls with `Math.random` no color is `'orange'`.
   - `seedRoot('general', now).messages` has 1 message from `userId: 'yorkie'`, `color: 'orange'`, text mentioning "another pane" and "offline"; `seedRoot('design', now)` has 1 message.
@@ -75,7 +75,7 @@
 
 **Interfaces:**
 - Consumes: Task 1 model.
-- Produces: `App` renders `YorkieProvider` → `DocumentProvider<WorkspaceRoot, ChatPresence>` (key `roomPrefix(...)`, `initialRoot { channels: CHANNELS }`, `initialPresence { ...makeUser(), channelId: 'general', typing: false }`) → `Workspace`. `Workspace` reads `useDocument()` once and passes `{ me, presences, updateWorkspace, workspaceDoc }` down. `ChannelRail({ channels, presences, me, openId, onOpen, disabled })`.
+- Produces: `App` renders `YorkieProvider` → `DocumentProvider<WorkspaceRoot, ChatPresence>` (key `roomPrefix(...)`, `initialRoot { channels: defaultChannels }`, `initialPresence { ...makeUser(), channelId: 'general', typing: false }`) → `Workspace`. `Workspace` reads `useDocument()` once and passes `{ me, presences, updateWorkspace, workspaceDoc }` down. `ChannelRail({ channels, presences, me, openId, onOpen, disabled })`.
 
 - [ ] **Step 1:** Rail per design: workspace name, "Channels" list with one dot per person whose `channelId` matches (peer color, `aria-label` with names), open row with 2px orange inset edge, "Online · N" list, the user's own row "(you)". When `presences.length === 1` show "You're alone here. Add a user or open this page in another tab." in place of the online list.
 - [ ] **Step 2:** Opening a channel sets presence `channelId` and `typing: false` in one `update`.

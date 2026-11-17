@@ -139,8 +139,9 @@ its place: "You're alone here. Add a user or open this page in another tab."
 
 ### Bounds
 
-- Message and reply text: control and bidi characters stripped, whitespace
-  collapsed, at most 500 code points. Rendered as plain text; URLs are not
+- Message and reply text: control and bidi characters stripped, runs of
+  blanks collapsed, line breaks kept (at most one blank line), at most 500
+  code points. Rendered as plain text; URLs are not
   turned into links.
 - A channel keeps its newest 200 messages; a send that exceeds this deletes
   the oldest in the same update. Daily keys bound the rest.
