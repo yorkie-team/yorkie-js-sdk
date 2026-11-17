@@ -218,4 +218,4 @@ Once a release tag contains that commit, the tag wins and the pin can go.
 
 ## Tasks
 
-To be added in `docs/tasks/active/` once this design is approved.
+[`docs/tasks/active/20261118-react-chat-example-todo.md`](../tasks/active/20261118-react-chat-example-todo.md)
