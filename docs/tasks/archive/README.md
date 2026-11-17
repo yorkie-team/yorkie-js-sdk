@@ -8,12 +8,13 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 72
+Total archived tasks: 73
 
-## 2026/11 (8 tasks)
+## 2026/11 (9 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| React Chat Example Implementation Plan (2026-11-18) | [20261118-react-chat-example-todo.md](./2026/11/20261118-react-chat-example-todo.md) | [20261118-react-chat-example-lessons.md](./2026/11/20261118-react-chat-example-lessons.md) |
 | Keep `__yson_`-prefixed user keys out of the marker namespace (2026-11-15) | [20261115-yson-reserved-key-escape-todo.md](./2026/11/20261115-yson-reserved-key-escape-todo.md) | [20261115-yson-reserved-key-escape-lessons.md](./2026/11/20261115-yson-reserved-key-escape-lessons.md) |
 | Keep simultaneous-cursors ink whole across peers (2026-11-15) | [20261115-cursors-ink-sync-todo.md](./2026/11/20261115-cursors-ink-sync-todo.md) | [20261115-cursors-ink-sync-lessons.md](./2026/11/20261115-cursors-ink-sync-lessons.md) |
 | Polish the example apps into one family (2026-11-14) | [20261114-examples-polish-todo.md](./2026/11/20261114-examples-polish-todo.md) | [20261114-examples-polish-lessons.md](./2026/11/20261114-examples-polish-lessons.md) |

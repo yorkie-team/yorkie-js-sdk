@@ -243,4 +243,4 @@ Once a release tag contains that commit, the tag wins and the pin can go.
 
 ## Tasks
 
-[`docs/tasks/active/20261118-react-chat-example-todo.md`](../tasks/active/20261118-react-chat-example-todo.md)
+[`docs/tasks/archive/2026/11/20261118-react-chat-example-todo.md`](../tasks/archive/2026/11/20261118-react-chat-example-todo.md)

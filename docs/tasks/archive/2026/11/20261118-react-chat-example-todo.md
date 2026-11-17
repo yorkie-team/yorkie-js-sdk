@@ -1,5 +1,7 @@
 **Created**: 2026-11-18
 
+Tracked as #1557
+
 Status: implemented on branch `react-chat-example`; verified with headless two-, three- and four-client checks against the local server.
 
 # React Chat Example Implementation Plan
