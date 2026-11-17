@@ -6,8 +6,11 @@ type Props = {
   me: ChatPresence;
   openId: string;
   onOpen: (channelId: string) => void;
-  /** Switching needs the server, so it is off while the pane is offline. */
-  disabled: boolean;
+  /**
+   * Switching needs the server, so it is off while the pane is offline. The
+   * others cannot be seen either, so the online list says why.
+   */
+  offline: boolean;
 };
 
 function names(list: Array<ChatPresence>): string {
@@ -24,7 +27,7 @@ export default function ChannelRail({
   me,
   openId,
   onOpen,
-  disabled,
+  offline,
 }: Props) {
   return (
     <nav className="rail" aria-label="Channels">
@@ -39,9 +42,9 @@ export default function ChannelRail({
                 type="button"
                 className="rail__channel"
                 aria-current={open ? 'page' : undefined}
-                disabled={disabled && !open}
+                disabled={offline && !open}
                 title={
-                  disabled && !open ? 'Reconnect to switch channels' : undefined
+                  offline && !open ? 'Go online to switch channels' : undefined
                 }
                 onClick={() => onOpen(channel.id)}
               >
@@ -73,8 +76,15 @@ export default function ChannelRail({
         })}
       </ul>
 
-      <h2 className="rail__heading">Online · {people.length}</h2>
-      {people.length <= 1 ? (
+      <h2 className="rail__heading">
+        {offline ? 'Online' : `Online · ${people.length}`}
+      </h2>
+      {offline ? (
+        <p className="rail__alone">
+          You&rsquo;re offline. Others can&rsquo;t see you, and you can&rsquo;t
+          see them, until you go online.
+        </p>
+      ) : people.length <= 1 ? (
         <p className="rail__alone">
           You&rsquo;re alone here. Add a user or open this page in another tab.
         </p>

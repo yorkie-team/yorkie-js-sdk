@@ -710,6 +710,13 @@ h2 {
   margin-top: 8px;
 }
 
+/* The homepage says how to try it; in a pane the hint only costs a row. */
+@container chat (max-width: 719px) {
+  .example-header__hint {
+    display: none;
+  }
+}
+
 /* Narrow panes: the rail becomes a list over the channel. */
 @container chat (max-width: 479px) {
   .rail {
@@ -737,10 +744,6 @@ h2 {
     width: 100%;
     border-left: 0;
   }
-
-  .example-header__hint {
-    display: none;
-  }
 }
 
 /* The yorkie.dev preview can be short: keep only the essentials. */
@@ -761,5 +764,81 @@ h2 {
 
   .rail__heading {
     padding-top: 8px;
+  }
+}
+
+/* Online/offline switch */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--gray-400);
+  border-radius: var(--radius-sm);
+  background: var(--gray-000);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.switch:hover:not(:disabled) {
+  background: var(--gray-100);
+}
+
+.switch__track {
+  position: relative;
+  width: 24px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--gray-400);
+  transition: background-color 0.2s;
+}
+
+.switch[data-online] .switch__track {
+  background: var(--success);
+}
+
+.switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--gray-000);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.switch[data-online] .switch__thumb {
+  transform: translateX(10px);
+}
+
+/* While offline the page itself says so: the composer keeps working, the
+ * rest of the room is out of reach. */
+.status[data-status='offline'] .status__dot {
+  background: var(--gray-500);
+}
+
+.scrim {
+  display: none;
+}
+
+@container chat (max-width: 479px) {
+  .scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: block;
+    border: 0;
+    background: rgb(51 46 43 / 24%);
+    cursor: default;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch__thumb {
+    transition: none;
   }
 }

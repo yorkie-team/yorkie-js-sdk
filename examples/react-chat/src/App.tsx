@@ -2,8 +2,11 @@ import './App.css';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  type Document,
   DocumentProvider,
+  SyncMode,
   useDocument,
+  useYorkie,
   YorkieProvider,
 } from '@yorkie-js/react';
 import ExampleHeader, { type Status } from './ExampleHeader';
@@ -20,8 +23,6 @@ import {
   seedRoot,
   type WorkspaceRoot,
 } from './model';
-
-const noop = () => {};
 
 // One person per page load, made outside React so StrictMode's double render
 // does not make two.
@@ -55,12 +56,25 @@ export default function App() {
 }
 
 function Workspace() {
-  const { root, presences, update, connection, loading, error } = useDocument<
-    WorkspaceRoot,
-    ChatPresence
-  >();
+  const { client } = useYorkie();
+  const {
+    doc: workspaceDoc,
+    root,
+    presences,
+    update,
+    connection,
+    loading,
+    error,
+  } = useDocument<WorkspaceRoot, ChatPresence>();
   const [openId, setOpenId] = useState(initialPresence.channelId);
+  const [railOpen, setRailOpen] = useState(false);
+  const [offline, setOffline] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
+  const offlineRef = useRef(false);
+  const typing = useRef(false);
   const settled = useRef(false);
+  const channelDoc = useRef<Document<ChannelRoot> | undefined>(undefined);
 
   const people = useMemo(
     () => presences.map(({ presence }) => presence),
@@ -86,10 +100,6 @@ function Workspace() {
     }
   }, [loading, people, me, update]);
 
-  const [railOpen, setRailOpen] = useState(false);
-  const typing = useRef(false);
-  const noPending = useMemo(() => new Set<string>(), []);
-
   const openChannel = useCallback(
     (channelId: string) => {
       setOpenId(channelId);
@@ -101,15 +111,59 @@ function Workspace() {
   );
 
   // Presence changes go to everyone, so only send the typing flag when it
-  // flips, not on every keystroke.
+  // flips, not on every keystroke, and not at all while offline, where it
+  // would arrive late.
   const setTyping = useCallback(
     (next: boolean) => {
-      if (typing.current === next) return;
+      if (offlineRef.current || typing.current === next) return;
       typing.current = next;
       update((_, presence) => presence.set({ typing: next }));
     },
     [update],
   );
+
+  const onWrite = useCallback((id: string) => {
+    if (offlineRef.current) setPendingIds((ids) => new Set(ids).add(id));
+  }, []);
+
+  const onDoc = useCallback((doc: Document<ChannelRoot> | undefined) => {
+    channelDoc.current = doc;
+  }, []);
+
+  /**
+   * Offline pauses both documents with `SyncMode.Manual`. That ends their
+   * watch streams, so the others see this pane leave and it sees only itself;
+   * what it writes meanwhile waits locally. Back online, both resume
+   * `Realtime` and the waiting changes are pushed.
+   */
+  const toggleOffline = async () => {
+    const ch = channelDoc.current;
+    const ws = workspaceDoc;
+    if (!client || !ch || !ws) return;
+    setSwitching(true);
+    try {
+      if (!offlineRef.current) {
+        // Clear "is typing" first, while the others can still hear it.
+        typing.current = false;
+        update((_, presence) => presence.set({ typing: false }));
+        await client.sync(ws);
+        await client.changeSyncMode(ch, SyncMode.Manual);
+        await client.changeSyncMode(ws, SyncMode.Manual);
+        offlineRef.current = true;
+        setOffline(true);
+      } else {
+        await client.changeSyncMode(ch, SyncMode.Realtime);
+        await client.changeSyncMode(ws, SyncMode.Realtime);
+        offlineRef.current = false;
+        setOffline(false);
+        await client.sync(ch);
+        await client.sync(ws);
+        setPendingIds(new Set());
+      }
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   const channel =
     root.channels?.find((c) => c.id === openId) ?? defaultChannels[0];
@@ -117,11 +171,27 @@ function Workspace() {
   let status: Status = 'offline';
   if (error) status = 'error';
   else if (loading) status = 'connecting';
+  else if (offline) status = 'offline';
   else if (connection === 'connected') status = 'connected';
 
   return (
     <div className="chat">
-      <ExampleHeader title="React Chat" status={status} />
+      <ExampleHeader title="React Chat" status={status}>
+        {!loading && !error && (
+          <button
+            type="button"
+            className="switch"
+            data-online={!offline || undefined}
+            disabled={switching}
+            onClick={toggleOffline}
+          >
+            <span className="switch__track" aria-hidden="true">
+              <span className="switch__thumb" />
+            </span>
+            {offline ? 'Go online' : 'Go offline'}
+          </button>
+        )}
+      </ExampleHeader>
       {error ? (
         <p className="state-message" role="alert">
           Couldn&rsquo;t reach the Yorkie server at{' '}
@@ -138,8 +208,16 @@ function Workspace() {
             me={me}
             openId={openId}
             onOpen={openChannel}
-            disabled={false}
+            offline={offline}
           />
+          {railOpen && (
+            <button
+              type="button"
+              className="scrim"
+              aria-label="Close channels"
+              onClick={() => setRailOpen(false)}
+            />
+          )}
           <DocumentProvider<ChannelRoot>
             key={channel.id}
             docKey={channelKey(prefix, channel.id)}
@@ -150,10 +228,10 @@ function Workspace() {
               channel={channel}
               me={me}
               people={people}
-              pendingIds={noPending}
+              pendingIds={pendingIds}
               setTyping={setTyping}
-              onWrite={noop}
-              onDoc={noop}
+              onWrite={onWrite}
+              onDoc={onDoc}
               onShowChannels={() => setRailOpen(true)}
             />
           </DocumentProvider>
