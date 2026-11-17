@@ -1,0 +1,321 @@
+/* yorkie.dev's Shared Canvas: warm neutrals, orange for the brand, and the
+ * other hues for people only. */
+:root {
+  color-scheme: light;
+  --gray-900: #332e2b;
+  --gray-800: #514c49;
+  --gray-700: #6e6966;
+  --gray-600: #807b78;
+  --gray-500: #a6a19e;
+  --gray-400: #c2bdba;
+  --gray-300: #e2dedb;
+  --gray-200: #efeceb;
+  --gray-100: #f5f3f1;
+  --gray-50: #faf8f6;
+  --gray-000: #fefdfb;
+  --orange-0: #fc8539;
+  --orange-dark: #f27b2f;
+  --orange-alpha: rgb(252 133 57 / 32%);
+  --success: #10b266;
+  --danger: #e93d47;
+  --blue: #3c9af1;
+  --green: #23c176;
+  --purple: #855cf9;
+  --yellow: #fdc433;
+  --red: #f44954;
+  --font:
+    Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --rail-width: 176px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--gray-000);
+  color: var(--gray-900);
+  font: 14px/22px var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--orange-alpha);
+}
+
+:focus-visible {
+  outline: 2px solid var(--orange-0);
+  outline-offset: 2px;
+}
+
+button,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+h2 {
+  margin: 0;
+}
+
+/* People's colors. `data-color` is set on dots, avatars and own reactions. */
+[data-color='blue'] {
+  --peer: var(--blue);
+  --peer-ink: #fff;
+}
+[data-color='green'] {
+  --peer: var(--green);
+  --peer-ink: #fff;
+}
+[data-color='purple'] {
+  --peer: var(--purple);
+  --peer-ink: #fff;
+}
+[data-color='yellow'] {
+  --peer: var(--yellow);
+  --peer-ink: var(--gray-900);
+}
+[data-color='red'] {
+  --peer: var(--red);
+  --peer-ink: #fff;
+}
+[data-color='orange'] {
+  --peer: var(--orange-0);
+  --peer-ink: #fff;
+}
+
+/* Layout */
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  container: chat / inline-size;
+}
+
+.chat__body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.state-message {
+  margin: 48px 16px;
+  color: var(--gray-700);
+  text-align: center;
+}
+
+/* Example header (shared by the examples) */
+.example-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
+  min-height: 56px;
+  padding: 8px 16px;
+  background: var(--gray-000);
+  border-bottom: 1px solid var(--gray-300);
+}
+
+.example-header__intro {
+  min-width: 0;
+}
+
+.example-header__title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.example-header__hint {
+  margin: 0;
+  color: var(--gray-700);
+}
+
+.example-header a {
+  color: var(--gray-900);
+  text-decoration: underline;
+  text-decoration-color: var(--orange-0);
+  text-underline-offset: 3px;
+  border-radius: 2px;
+}
+
+.example-header a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.example-header__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+.status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gray-500);
+}
+
+.status[data-status='connected'] .status__dot {
+  background: var(--success);
+}
+
+.status[data-status='error'] .status__dot {
+  background: var(--danger);
+}
+
+/* Rail */
+.rail {
+  flex: none;
+  width: var(--rail-width);
+  overflow-y: auto;
+  padding: 8px 0 16px;
+  background: var(--gray-50);
+  border-right: 1px solid var(--gray-400);
+}
+
+.rail__heading {
+  padding: 16px 16px 4px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.rail__heading:first-child {
+  padding-top: 8px;
+}
+
+.rail__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail__channel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 16px;
+  border: 0;
+  background: none;
+  color: var(--gray-700);
+  text-align: left;
+  transition: background-color 0.2s;
+}
+
+.rail__channel:hover:not(:disabled) {
+  background: var(--gray-100);
+}
+
+.rail__channel[aria-current='page'] {
+  background: var(--gray-200);
+  color: var(--gray-900);
+  font-weight: 600;
+}
+
+.rail__channel[aria-current='page'] .rail__hash {
+  color: var(--orange-dark);
+}
+
+.rail__channel:disabled {
+  color: var(--gray-500);
+}
+
+.rail__channel:focus-visible {
+  outline-offset: -2px;
+}
+
+.rail__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail__hash {
+  margin-right: 2px;
+  color: var(--gray-500);
+}
+
+.dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 3px;
+  max-width: 56px;
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--peer, var(--gray-400));
+}
+
+.rail__person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 16px;
+  color: var(--gray-800);
+}
+
+.rail__person-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail__you {
+  color: var(--gray-600);
+}
+
+.rail__alone {
+  margin: 4px 16px 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--gray-700);
+}
+
+/* Channel */
+.channel {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}

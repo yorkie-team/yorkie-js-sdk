@@ -4,6 +4,7 @@ import {
   addMessage,
   addReply,
   channelKey,
+  distinctFrom,
   type ChannelRoot,
   cleanText,
   makeUser,
@@ -83,6 +84,33 @@ describe('makeUser', () => {
     for (let i = 0; i < 100; i++) {
       expect(makeUser().color).not.toBe('orange');
     }
+  });
+});
+
+describe('distinctFrom', () => {
+  it('keeps a free name and color', () => {
+    expect(
+      distinctFrom({ name: 'Ari', color: 'blue' }, [
+        { name: 'Ben', color: 'green' },
+      ]),
+    ).toEqual({ name: 'Ari', color: 'blue' });
+  });
+
+  it('moves off a taken name and color', () => {
+    expect(
+      distinctFrom({ name: 'Ari', color: 'blue' }, [
+        { name: 'Ari', color: 'blue' },
+      ]),
+    ).toEqual({ name: 'Ben', color: 'green' });
+  });
+
+  it('keeps its own when every color is taken', () => {
+    const others = (['blue', 'green', 'purple', 'yellow', 'red'] as const).map(
+      (color, i) => ({ name: `P${i}`, color }),
+    );
+    expect(distinctFrom({ name: 'Ari', color: 'red' }, others).color).toBe(
+      'red',
+    );
   });
 });
 

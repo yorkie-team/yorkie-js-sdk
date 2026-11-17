@@ -120,6 +120,27 @@ export function makeUser(
   };
 }
 
+/**
+ * `distinctFrom` returns a name and color for `me` that nobody else in
+ * `others` has, keeping its own where they are free. Two panes picking at
+ * random can land on the same color, which would hide who is who.
+ */
+export function distinctFrom(
+  me: Pick<ChatPresence, 'name' | 'color'>,
+  others: Array<Pick<ChatPresence, 'name' | 'color'>>,
+): Pick<ChatPresence, 'name' | 'color'> {
+  const usedNames = new Set(others.map((p) => p.name));
+  const usedColors = new Set(others.map((p) => p.color));
+  return {
+    name: usedNames.has(me.name)
+      ? (names.find((n) => !usedNames.has(n)) ?? me.name)
+      : me.name,
+    color: usedColors.has(me.color)
+      ? (peerColors.find((c) => !usedColors.has(c)) ?? me.color)
+      : me.color,
+  };
+}
+
 const seedText: Record<string, string> = {
   general:
     'Welcome! Open another pane to chat with yourself, react to this message from both at once, then switch one pane offline and keep typing.',
