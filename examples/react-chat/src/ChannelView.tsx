@@ -12,6 +12,7 @@ import {
   emptyReactions,
   type Message,
   newId,
+  readMessage,
   toggleReaction,
 } from './model';
 import ThreadSheet from './ThreadSheet';
@@ -20,13 +21,14 @@ type Props = {
   channel: ChannelInfo;
   me: ChatPresence;
   people: Array<ChatPresence>;
+  offline: boolean;
   pendingIds: Set<string>;
   setTyping: (typing: boolean) => void;
   /** Called with each id this pane writes, so it can be marked while offline. */
   onWrite: (id: string) => void;
-  /** Hands the channel document up, for the offline switch. */
+  /** Hands the channel document up once attached, for the offline switch. */
   onDoc: (doc: Document<ChannelRoot> | undefined) => void;
-  onShowChannels: () => void;
+  onShowChannels: (trigger: HTMLButtonElement) => void;
 };
 
 function typingLine(names: Array<string>): string {
@@ -43,6 +45,7 @@ export default function ChannelView({
   channel,
   me,
   people,
+  offline,
   pendingIds,
   setTyping,
   onWrite,
@@ -52,18 +55,23 @@ export default function ChannelView({
   const { doc, root, update, loading, error } = useDocument<ChannelRoot>();
   const [threadId, setThreadId] = useState<string | undefined>(undefined);
   const threadTrigger = useRef<HTMLButtonElement | undefined>(undefined);
+  const ready = !!doc && !loading && !error;
 
   useEffect(() => {
-    onDoc(doc);
+    onDoc(ready ? doc : undefined);
     return () => onDoc(undefined);
-  }, [doc, onDoc]);
+  }, [ready, doc, onDoc]);
 
   const here = people.filter((p) => p.channelId === channel.id);
-  const typers = here
-    .filter((p) => p.typing && p.userId !== me.userId)
-    .map((p) => p.name);
+  const typers = here.filter((p) => p.typing && p.userId !== me.userId);
   const messages = root.messages ?? [];
-  const thread = threadId ? messages.find((m) => m.id === threadId) : undefined;
+  const stored = threadId
+    ? messages.find((m) => m?.id === threadId)
+    : undefined;
+  const thread = stored ? readMessage(stored) : undefined;
+
+  // If the thread's message goes away under it (trimmed past the cap by
+  // someone else), `thread` is undefined and the sheet simply closes.
 
   const author = () => ({
     id: newId(),
@@ -103,7 +111,7 @@ export default function ChannelView({
           type="button"
           className="channel__switch"
           aria-label={`#${channel.name}, show channels`}
-          onClick={onShowChannels}
+          onClick={(e) => onShowChannels(e.currentTarget)}
         >
           <span className="rail__hash" aria-hidden="true">
             #
@@ -117,7 +125,9 @@ export default function ChannelView({
           </span>
           {channel.name}
         </h2>
-        <p className="channel__here">{here.length} here now</p>
+        <p className="channel__here">
+          {offline ? 'Offline' : `${here.length} here now`}
+        </p>
       </div>
 
       {error ? (
@@ -144,13 +154,25 @@ export default function ChannelView({
       )}
 
       <p className="typing" aria-live="polite">
-        {typers.length > 0 && typingLine(typers)}
+        {typers.length > 0 && (
+          <>
+            <span className="typing__dots" aria-hidden="true">
+              {typers.slice(0, 3).map((p) => (
+                <span key={p.userId} className="dot" data-color={p.color} />
+              ))}
+            </span>
+            {typingLine(typers.map((p) => p.name))}
+          </>
+        )}
       </p>
       <Composer
         label={`Message #${channel.name}`}
-        placeholder={`Message #${channel.name}`}
+        placeholder={
+          ready ? `Message #${channel.name}` : `Opening #${channel.name}…`
+        }
         onSend={send}
         onTyping={setTyping}
+        disabled={!ready}
       />
 
       {thread && (

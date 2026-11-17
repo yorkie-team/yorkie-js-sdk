@@ -28,5 +28,12 @@
   HTTP/1.1 at three tabs: one tab stays on "Opening…" and presence never
   converges. api.yorkie.dev is HTTP/2. Test many local clients in separate
   browser contexts.
+- `Array.isArray` is false for a Yorkie array (a Proxy): a defensive reader
+  that checked it read every thread as empty. Test for iterability, and
+  test readers against a real Document root, not plain objects.
+- `DocumentProvider` detaches on unmount only if the attach had finished,
+  so leaving a channel mid-attach leaves it attached and a later attach of
+  the same key fails. The example holds the rail while a channel opens;
+  the provider itself needs a fix (follow-up).
 - yorkie.dev builds examples from the release tag unless
   `YORKIE_JS_EXAMPLES_REF` pins a commit.

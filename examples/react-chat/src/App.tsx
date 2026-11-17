@@ -71,9 +71,12 @@ function Workspace() {
   const [offline, setOffline] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
+  const [channelReady, setChannelReady] = useState(false);
+  const [switchFailed, setSwitchFailed] = useState(false);
   const offlineRef = useRef(false);
   const typing = useRef(false);
   const channelDoc = useRef<Document<ChannelRoot> | undefined>(undefined);
+  const railTrigger = useRef<HTMLButtonElement | undefined>(undefined);
 
   const people = useMemo(
     () => presences.map(({ presence }) => presence),
@@ -100,14 +103,20 @@ function Workspace() {
     }
   }, [loading, offline, people, me, update]);
 
+  const closeRail = useCallback(() => {
+    setRailOpen(false);
+    railTrigger.current?.focus();
+  }, []);
+
   const openChannel = useCallback(
     (channelId: string) => {
+      closeRail();
+      if (channelId === openId) return;
       setOpenId(channelId);
-      setRailOpen(false);
       typing.current = false;
       update((_, presence) => presence.set({ channelId, typing: false }));
     },
-    [update],
+    [closeRail, openId, update],
   );
 
   // Presence changes go to everyone, so only send the typing flag when it
@@ -128,6 +137,7 @@ function Workspace() {
 
   const onDoc = useCallback((doc: Document<ChannelRoot> | undefined) => {
     channelDoc.current = doc;
+    setChannelReady(!!doc);
   }, []);
 
   /**
@@ -141,28 +151,43 @@ function Workspace() {
     const ws = workspaceDoc;
     if (!client || !ch || !ws) return;
     setSwitching(true);
-    try {
-      if (!offlineRef.current) {
+    setSwitchFailed(false);
+    if (!offlineRef.current) {
+      // From here on, write as if offline: no typing flags, and what is sent
+      // is marked until it is pushed.
+      offlineRef.current = true;
+      try {
         // Clear "is typing" first, while the others can still hear it.
         typing.current = false;
         update((_, presence) => presence.set({ typing: false }));
         await client.sync(ws);
         await client.changeSyncMode(ch, SyncMode.Manual);
         await client.changeSyncMode(ws, SyncMode.Manual);
-        offlineRef.current = true;
         setOffline(true);
-      } else {
+      } catch (err) {
+        console.error('Could not go offline', err);
+        offlineRef.current = false;
+        setSwitchFailed(true);
+        await Promise.allSettled([
+          client.changeSyncMode(ch, SyncMode.Realtime),
+          client.changeSyncMode(ws, SyncMode.Realtime),
+        ]);
+      }
+    } else {
+      try {
         await client.changeSyncMode(ch, SyncMode.Realtime);
         await client.changeSyncMode(ws, SyncMode.Realtime);
+        // Realtime pushes what waited; syncing here only tells us when.
+        await Promise.allSettled([client.sync(ch), client.sync(ws)]);
         offlineRef.current = false;
         setOffline(false);
-        await client.sync(ch);
-        await client.sync(ws);
         setPendingIds(new Set());
+      } catch (err) {
+        console.error('Could not go online', err);
+        setSwitchFailed(true);
       }
-    } finally {
-      setSwitching(false);
     }
+    setSwitching(false);
   };
 
   const channel =
@@ -182,7 +207,12 @@ function Workspace() {
             type="button"
             className="switch"
             data-online={!offline || undefined}
-            disabled={switching}
+            disabled={switching || !channelReady}
+            title={
+              !channelReady && !switching
+                ? 'Wait for the channel to open'
+                : undefined
+            }
             onClick={toggleOffline}
           >
             <span className="switch__track" aria-hidden="true">
@@ -190,6 +220,11 @@ function Workspace() {
             </span>
             {offline ? 'Go online' : 'Go offline'}
           </button>
+        )}
+        {switchFailed && (
+          <span className="switch__error" role="alert">
+            Couldn&rsquo;t switch. Try again.
+          </span>
         )}
       </ExampleHeader>
       {error ? (
@@ -209,13 +244,17 @@ function Workspace() {
             openId={openId}
             onOpen={openChannel}
             offline={offline}
+            busy={switching || !channelReady}
+            open={railOpen}
+            onClose={closeRail}
           />
           {railOpen && (
             <button
               type="button"
               className="scrim"
               aria-label="Close channels"
-              onClick={() => setRailOpen(false)}
+              tabIndex={-1}
+              onClick={closeRail}
             />
           )}
           <DocumentProvider<ChannelRoot>
@@ -228,11 +267,15 @@ function Workspace() {
               channel={channel}
               me={me}
               people={people}
+              offline={offline}
               pendingIds={pendingIds}
               setTyping={setTyping}
               onWrite={onWrite}
               onDoc={onDoc}
-              onShowChannels={() => setRailOpen(true)}
+              onShowChannels={(trigger) => {
+                railTrigger.current = trigger;
+                setRailOpen(true);
+              }}
             />
           </DocumentProvider>
         </div>

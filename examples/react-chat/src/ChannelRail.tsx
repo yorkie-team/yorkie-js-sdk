@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { ChannelInfo, ChatPresence } from './model';
 
 type Props = {
@@ -11,6 +12,14 @@ type Props = {
    * others cannot be seen either, so the online list says why.
    */
   offline: boolean;
+  /**
+   * Switching is also held while a channel is still opening or the pane is
+   * going on or offline: leaving a channel mid-attach would leave it attached.
+   */
+  busy: boolean;
+  /** Narrow panes show the rail over the channel; `open` moves focus into it. */
+  open: boolean;
+  onClose: () => void;
 };
 
 function names(list: Array<ChatPresence>): string {
@@ -28,9 +37,23 @@ export default function ChannelRail({
   openId,
   onOpen,
   offline,
+  busy,
+  open: shown,
+  onClose,
 }: Props) {
+  const rail = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (shown) rail.current?.querySelector<HTMLElement>('button')?.focus();
+  }, [shown]);
+
   return (
-    <nav className="rail" aria-label="Channels">
+    <nav
+      ref={rail}
+      className="rail"
+      aria-label="Channels"
+      onKeyDown={(e) => shown && e.key === 'Escape' && onClose()}
+    >
       <h2 className="rail__heading">Channels</h2>
       <ul className="rail__list">
         {channels.map((channel) => {
@@ -42,7 +65,7 @@ export default function ChannelRail({
                 type="button"
                 className="rail__channel"
                 aria-current={open ? 'page' : undefined}
-                disabled={offline && !open}
+                disabled={(offline || busy) && !open}
                 title={
                   offline && !open ? 'Go online to switch channels' : undefined
                 }
@@ -86,7 +109,8 @@ export default function ChannelRail({
         </p>
       ) : people.length <= 1 ? (
         <p className="rail__alone">
-          You&rsquo;re alone here. Add a user or open this page in another tab.
+          You&rsquo;re alone here. Open this page in another tab to chat with
+          yourself.
         </p>
       ) : (
         <ul className="rail__list">

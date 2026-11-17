@@ -12,6 +12,8 @@ import {
   type Message,
   messagesMax,
   newId,
+  normalizeText,
+  readMessage,
   type PeerColor,
   resolveIdentity,
   roomPrefix,
@@ -45,6 +47,20 @@ function channelDoc(): Document<ChannelRoot> {
 describe('cleanText', () => {
   it('strips control characters and collapses blanks', () => {
     expect(cleanText('  a\u0000b   c ')).toBe('ab c');
+  });
+
+  it('counts what would be sent before cutting', () => {
+    expect([
+      ...normalizeText(`${' '.repeat(400)}a${' \n'.repeat(300)}`),
+    ]).toHaveLength(1);
+  });
+
+  it('turns tabs into spaces', () => {
+    expect(cleanText('a\tb')).toBe('a b');
+  });
+
+  it('keeps compound emoji whole', () => {
+    expect(cleanText('👩‍💻 🏳️‍🌈')).toBe('👩‍💻 🏳️‍🌈');
   });
 
   it('keeps line breaks, at most one blank line', () => {
@@ -165,6 +181,42 @@ describe('resolveIdentity', () => {
   });
 });
 
+describe('readMessage', () => {
+  it('passes a well-formed message through', () => {
+    const m = message('m1');
+    expect(readMessage(m)).toEqual(m);
+  });
+
+  it('reads a message straight from a document', () => {
+    const doc = channelDoc();
+    const { id, userId, name, color, text, at } = message('r1');
+    doc.update((root) => {
+      addReply(root, 'm1', { id, userId, name, color, text, at });
+      toggleReaction(root, 'm1', '👍', 'u1');
+    });
+    const m = readMessage(doc.getRoot().messages[0]);
+    expect(m?.replies.map((r) => r.id)).toEqual(['r1']);
+    expect(m?.reactions['👍']).toEqual({ u1: true });
+  });
+
+  it('drops what cannot be drawn', () => {
+    expect(readMessage(undefined)).toBeUndefined();
+    expect(readMessage({ text: 'no id' })).toBeUndefined();
+  });
+
+  it('fills in missing or broken fields', () => {
+    const m = readMessage({ id: 'x', at: 1794928803603n, color: 'teal' });
+    expect(m).toMatchObject({
+      id: 'x',
+      text: '',
+      at: '',
+      color: 'blue',
+      reactions: {},
+      replies: [],
+    });
+  });
+});
+
 describe('seedRoot', () => {
   it('starts every message with an empty object per emoji', () => {
     expect(Object.keys(seedRoot('general', now).messages[0].reactions)).toEqual(
@@ -177,7 +229,7 @@ describe('seedRoot', () => {
     expect(messages).toHaveLength(1);
     expect(messages[0].userId).toBe('yorkie');
     expect(messages[0].color).toBe('orange');
-    expect(messages[0].text).toMatch(/another pane/);
+    expect(messages[0].text).toMatch(/another tab/);
     expect(messages[0].text).toMatch(/offline/);
   });
 

@@ -126,7 +126,11 @@ and the workspace document, and online switches both back to
 `SyncMode.Realtime`. While offline the pane keeps accepting messages and
 reactions; its own messages show a pending mark until the push lands.
 Switching channel while offline is disabled, because attaching a channel
-document needs the server.
+document needs the server. Switching is also held while a channel is still
+opening and while the pane is going on or offline: `DocumentProvider`
+detaches on unmount only if the attach has finished, so leaving a channel
+mid-attach would leave it attached, and the next attach of that key would
+fail. The message box stays disabled until the channel is attached.
 
 This is a real disconnect, not a staged one. Manual mode cancels the watch
 stream, so the client clears its online set: the offline pane's rail and
@@ -156,7 +160,11 @@ its place: "You're alone here. Add a user or open this page in another tab."
   code points. Rendered as plain text; URLs are not
   turned into links.
 - A channel keeps its newest 200 messages; a send that exceeds this deletes
-  the oldest in the same update. Daily keys bound the rest.
+  the oldest in the same update. Two panes trimming at once can leave a few
+  over the cap until the next send. Daily keys bound the rest.
+- The room is public and any client can write any shape, so messages are
+  read through `readMessage`, which drops or repairs malformed entries
+  instead of letting one bad write blank every pane.
 
 ### Screen
 
@@ -170,7 +178,9 @@ The structure is the "presence rail" layout chosen on the decision page:
   link), a typing line ("Ben is typing…"), and the composer.
 - Thread: a 300px sheet from the right over the message column, with the
   parent message on top and a reply composer.
-- From 900px the thread sits beside the messages instead of over them.
+- From 900px the thread sits beside the messages instead of over them; at
+  775px and below (where less than about 280px of messages would be left
+  beside it) it covers the whole message column.
 - Below 480px pane width the rail collapses behind a channel button in the
   header, and the thread sheet takes the full width.
 - Visual system: the yorkie.dev "Shared Canvas" (`DESIGN.md` in

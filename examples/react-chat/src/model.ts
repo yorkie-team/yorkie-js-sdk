@@ -70,27 +70,35 @@ const names = [
   'June',
 ];
 
-// Control characters, zero-width and direction marks, line/paragraph
-// separators, bidi embeddings and isolates, and the BOM. Line breaks are
-// kept so Shift+Enter can make a multi-line message.
+// Control characters, the zero-width space, direction marks, line/paragraph
+// separators, bidi embeddings and isolates, and the BOM. Kept: line breaks,
+// so Shift+Enter can make a multi-line message; tabs, which the blank
+// collapse turns into spaces; and the zero-width (non-)joiners, which
+// compound emoji such as 👩‍💻 and scripts such as Persian need.
 const unsafe =
   // eslint-disable-next-line no-control-regex
-  /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/g;
+  /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b\u200e\u200f\u2028-\u202e\u2066-\u2069\ufeff]/g;
 
 /**
- * `cleanText` returns `raw` as it may be sent: unsafe characters removed,
- * runs of blanks collapsed (line breaks kept, at most two in a row), trimmed,
- * and cut to `textMax` code points. `undefined` means there is nothing to send.
+ * `normalizeText` is `raw` with unsafe characters removed, runs of blanks
+ * collapsed (line breaks kept, at most two in a row), and trimmed.
  */
-export function cleanText(raw: string): string | undefined {
-  const s = raw
+export function normalizeText(raw: string): string {
+  return raw
     .replace(/\r\n?/g, '\n')
     .replace(unsafe, '')
     .replace(/[^\S\n]+/g, ' ')
     .replace(/ *\n */g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  const out = [...s].slice(0, textMax).join('').trim();
+}
+
+/**
+ * `cleanText` returns `raw` as it may be sent: normalized and cut to
+ * `textMax` code points. `undefined` means there is nothing to send.
+ */
+export function cleanText(raw: string): string | undefined {
+  const out = [...normalizeText(raw)].slice(0, textMax).join('').trim();
   return out.length ? out : undefined;
 }
 
@@ -169,7 +177,7 @@ export function resolveIdentity(
 
 const seedText: Record<string, string> = {
   general:
-    'Welcome! Open another pane to chat with yourself, react to this message from both at once, then switch one pane offline and keep typing.',
+    'Welcome! Open this page in another tab to chat with yourself, react to this message from both at once, then take one tab offline and keep typing.',
   design: 'Share mockups and feedback here.',
   random: 'Anything goes.',
 };
@@ -177,7 +185,9 @@ const seedText: Record<string, string> = {
 /**
  * `seedRoot` is the first content of a channel document for the day. It is
  * passed as `initialRoot`, which sets `messages` as one value, so two panes
- * creating the document at once end up with one array, not two.
+ * creating the document at once end up with one array, not two. (If both
+ * set it before either sees the other, one array wins, and a write made
+ * into the losing one in that moment is dropped.)
  */
 export function seedRoot(channelId: string, now: Date): ChannelRoot {
   const seed: Message = {
@@ -193,7 +203,10 @@ export function seedRoot(channelId: string, now: Date): ChannelRoot {
   return { messages: [seed] as JSONArray<Message> };
 }
 
-/** `addMessage` appends `m` and drops the oldest past `messagesMax`. */
+/**
+ * `addMessage` appends `m` and drops the oldest past `messagesMax`. Two panes
+ * trimming at once can leave a few over the cap; the next send trims them.
+ */
 export function addMessage(root: ChannelRoot, m: Message): void {
   root.messages.push(m);
   while (root.messages.length > messagesMax) {
@@ -240,4 +253,55 @@ export function reactionCount(
   people: Record<string, true> | undefined,
 ): number {
   return people ? Object.keys(people).length : 0;
+}
+
+// A Yorkie array is a Proxy, for which `Array.isArray` is false: test for
+// iterability instead.
+const isList = (v: unknown): v is Iterable<unknown> =>
+  typeof v === 'object' &&
+  v !== null &&
+  typeof (v as Iterable<unknown>)[Symbol.iterator] === 'function';
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !isList(v);
+
+function readReply(raw: unknown): Reply | undefined {
+  if (!isRecord(raw) || typeof raw.id !== 'string') return undefined;
+  const at = typeof raw.at === 'string' ? raw.at : '';
+  return {
+    id: raw.id,
+    userId: typeof raw.userId === 'string' ? raw.userId : '',
+    name: typeof raw.name === 'string' && raw.name ? raw.name : 'Someone',
+    color:
+      peerColors.includes(raw.color as PeerColor) || raw.color === 'orange'
+        ? (raw.color as Reply['color'])
+        : 'blue',
+    text: typeof raw.text === 'string' ? raw.text : '',
+    at: Number.isNaN(Date.parse(at)) ? '' : at,
+  };
+}
+
+/**
+ * `readMessage` is a stored message as it may be drawn, or `undefined` when
+ * it cannot be. The daily room is public and any client can write any
+ * shape, so one malformed message must not take every pane down with it.
+ * An empty `at` means the time is unknown.
+ */
+export function readMessage(raw: unknown): Message | undefined {
+  const base = readReply(raw);
+  if (!base || !isRecord(raw)) return undefined;
+  const reactions: Message['reactions'] = {};
+  if (isRecord(raw.reactions)) {
+    for (const [emoji, people] of Object.entries(raw.reactions)) {
+      if (isRecord(people)) {
+        reactions[emoji] = Object.fromEntries(
+          Object.keys(people).map((id) => [id, true as const]),
+        );
+      }
+    }
+  }
+  const replies = isList(raw.replies)
+    ? Array.from(raw.replies, readReply).filter((r): r is Reply => !!r)
+    : [];
+  return { ...base, reactions, replies };
 }

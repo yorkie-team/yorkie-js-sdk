@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { SendIcon } from './icons';
-import { cleanText, textMax } from './model';
+import { cleanText, normalizeText, textMax } from './model';
 
 const idleMs = 3000;
 const counterFrom = textMax - 50;
@@ -12,6 +12,8 @@ type Props = {
   /** Called with `true` while there is text being written, `false` after. */
   onTyping?: (typing: boolean) => void;
   autoFocus?: boolean;
+  /** Off until the document is attached: a write before that goes nowhere. */
+  disabled?: boolean;
 };
 
 /**
@@ -25,11 +27,14 @@ export default function Composer({
   onSend,
   onTyping,
   autoFocus,
+  disabled = false,
 }: Props) {
   const [text, setText] = useState('');
   const idle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const box = useRef<HTMLTextAreaElement>(null);
-  const length = [...text].length;
+  // Count what would be sent, so pasted blanks do not block a message.
+  const clean = cleanText(text);
+  const length = [...normalizeText(text)].length;
   const tooLong = length > textMax;
 
   const stopTyping = () => {
@@ -60,8 +65,7 @@ export default function Composer({
   };
 
   const send = () => {
-    const clean = cleanText(text);
-    if (!clean || tooLong) return;
+    if (!clean || tooLong || disabled) return;
     onSend(clean);
     setText('');
     stopTyping();
@@ -90,6 +94,7 @@ export default function Composer({
         placeholder={placeholder}
         value={text}
         autoFocus={autoFocus}
+        disabled={disabled}
         onChange={(e) => change(e.target.value)}
         onKeyDown={keyDown}
         onBlur={onTyping ? stopTyping : undefined}
@@ -107,7 +112,7 @@ export default function Composer({
         type="submit"
         className="composer__send"
         aria-label="Send"
-        disabled={!cleanText(text) || tooLong}
+        disabled={!clean || tooLong || disabled}
       >
         <SendIcon />
       </button>

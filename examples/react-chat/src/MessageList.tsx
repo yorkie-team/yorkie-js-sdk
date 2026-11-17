@@ -1,10 +1,11 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ReactIcon } from './icons';
 import {
   type ChatPresence,
   emojis,
   type Message,
   reactionCount,
+  readMessage,
   type Reply,
 } from './model';
 
@@ -13,7 +14,12 @@ import {
 const groupMs = 5 * 60 * 1000;
 
 const time = (at: string) =>
-  new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  at
+    ? new Date(at).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
 
 export function Avatar({ person }: { person: Pick<Reply, 'name' | 'color'> }) {
   return (
@@ -38,12 +44,11 @@ export function MessageBody({
       {!compact && (
         <p className="message__meta">
           <span className="message__name">{message.name}</span>
-          <time
-            className="message__time"
-            dateTime={new Date(message.at).toISOString()}
-          >
-            {time(message.at)}
-          </time>
+          {message.at && (
+            <time className="message__time" dateTime={message.at}>
+              {time(message.at)}
+            </time>
+          )}
         </p>
       )}
       <p className="message__text">{message.text}</p>
@@ -65,7 +70,7 @@ type Props = {
  * newest one unless the reader has scrolled up.
  */
 export default function MessageList({
-  messages,
+  messages: stored,
   me,
   pendingIds,
   onReact,
@@ -73,16 +78,21 @@ export default function MessageList({
 }: Props) {
   const list = useRef<HTMLOListElement>(null);
   const pinned = useRef(true);
+  const pickerTrigger = useRef<HTMLButtonElement | undefined>(undefined);
   const [pickerFor, setPickerFor] = useState<string | undefined>(undefined);
+  const messages = useMemo(
+    () => Array.from(stored, readMessage).filter((m): m is Message => !!m),
+    [stored],
+  );
 
   useLayoutEffect(() => {
     const el = list.current;
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  const react = (messageId: string, emoji: string) => {
-    onReact(messageId, emoji);
+  const closePicker = () => {
     setPickerFor(undefined);
+    pickerTrigger.current?.focus();
   };
 
   return (
@@ -96,11 +106,12 @@ export default function MessageList({
       }}
     >
       {messages.map((m, i) => {
-        // Never read index -1: a Yorkie array throws on it.
         const prev = i > 0 ? messages[i - 1] : undefined;
         const compact =
           !!prev &&
           prev.userId === m.userId &&
+          !!m.at &&
+          !!prev.at &&
           Date.parse(m.at) - Date.parse(prev.at) < groupMs;
         const used = Object.keys(m.reactions).filter(
           (emoji) => reactionCount(m.reactions[emoji]) > 0,
@@ -156,9 +167,7 @@ export default function MessageList({
                   className="picker"
                   role="group"
                   aria-label="Add a reaction"
-                  onKeyDown={(e) =>
-                    e.key === 'Escape' && setPickerFor(undefined)
-                  }
+                  onKeyDown={(e) => e.key === 'Escape' && closePicker()}
                 >
                   {emojis.map((emoji, j) => (
                     <button
@@ -167,7 +176,10 @@ export default function MessageList({
                       className="picker__emoji"
                       autoFocus={j === 0}
                       aria-label={`React with ${emoji}`}
-                      onClick={() => react(m.id, emoji)}
+                      onClick={() => {
+                        onReact(m.id, emoji);
+                        closePicker();
+                      }}
                     >
                       {emoji}
                     </button>
@@ -182,9 +194,10 @@ export default function MessageList({
                 aria-label="Add a reaction"
                 aria-expanded={pickerFor === m.id}
                 title="Add a reaction"
-                onClick={() =>
-                  setPickerFor(pickerFor === m.id ? undefined : m.id)
-                }
+                onClick={(e) => {
+                  pickerTrigger.current = e.currentTarget;
+                  setPickerFor(pickerFor === m.id ? undefined : m.id);
+                }}
               >
                 <ReactIcon />
               </button>
