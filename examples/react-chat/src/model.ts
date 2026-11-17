@@ -98,7 +98,12 @@ export function normalizeText(raw: string): string {
  * `textMax` code points. `undefined` means there is nothing to send.
  */
 export function cleanText(raw: string): string | undefined {
-  const out = [...normalizeText(raw)].slice(0, textMax).join('').trim();
+  return toSendable(normalizeText(raw));
+}
+
+/** `toSendable` cuts already normalized text to `textMax` code points. */
+export function toSendable(normalized: string): string | undefined {
+  const out = [...normalized].slice(0, textMax).join('').trim();
   return out.length ? out : undefined;
 }
 
@@ -271,12 +276,17 @@ function readReply(raw: unknown): Reply | undefined {
   return {
     id: raw.id,
     userId: typeof raw.userId === 'string' ? raw.userId : '',
-    name: typeof raw.name === 'string' && raw.name ? raw.name : 'Someone',
+    name:
+      (typeof raw.name === 'string' &&
+        [...(cleanText(raw.name) ?? '')].slice(0, 24).join('')) ||
+      'Someone',
     color:
       peerColors.includes(raw.color as PeerColor) || raw.color === 'orange'
         ? (raw.color as Reply['color'])
         : 'blue',
-    text: typeof raw.text === 'string' ? raw.text : '',
+    // Remote text gets the same cleanup and cap as text typed here: other
+    // clients are not bound by this one's composer.
+    text: typeof raw.text === 'string' ? (cleanText(raw.text) ?? '') : '',
     at: Number.isNaN(Date.parse(at)) ? '' : at,
   };
 }
@@ -304,4 +314,29 @@ export function readMessage(raw: unknown): Message | undefined {
     ? Array.from(raw.replies, readReply).filter((r): r is Reply => !!r)
     : [];
   return { ...base, reactions, replies };
+}
+
+/** `readMessages` is a channel's stored messages as they may be drawn. */
+export function readMessages(raw: unknown): Array<Message> {
+  if (!isList(raw)) return [];
+  return Array.from(raw, readMessage).filter((m): m is Message => !!m);
+}
+
+/**
+ * `readChannels` is the workspace's stored channel list as it may be used:
+ * ids that can go into a document key, falling back to the default channels
+ * when nothing usable is stored.
+ */
+export function readChannels(raw: unknown): Array<ChannelInfo> {
+  if (!isList(raw)) return defaultChannels;
+  const seen = new Set<string>();
+  const out: Array<ChannelInfo> = [];
+  for (const c of raw) {
+    if (!isRecord(c) || typeof c.id !== 'string') continue;
+    if (!/^[a-z0-9-]{1,32}$/.test(c.id) || seen.has(c.id)) continue;
+    seen.add(c.id);
+    const name = typeof c.name === 'string' ? cleanText(c.name) : undefined;
+    out.push({ id: c.id, name: name ? [...name].slice(0, 32).join('') : c.id });
+  }
+  return out.length ? out : defaultChannels;
 }

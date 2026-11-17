@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { SendIcon } from './icons';
-import { cleanText, normalizeText, textMax } from './model';
+import { normalizeText, textMax, toSendable } from './model';
 
 const idleMs = 3000;
 const counterFrom = textMax - 50;
@@ -33,8 +33,9 @@ export default function Composer({
   const idle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const box = useRef<HTMLTextAreaElement>(null);
   // Count what would be sent, so pasted blanks do not block a message.
-  const clean = cleanText(text);
-  const length = [...normalizeText(text)].length;
+  const normalized = normalizeText(text);
+  const clean = toSendable(normalized);
+  const length = [...normalized].length;
   const tooLong = length > textMax;
 
   const stopTyping = () => {
@@ -56,7 +57,7 @@ export default function Composer({
     setText(value);
     if (!onTyping) return;
     clearTimeout(idle.current);
-    if (cleanText(value)) {
+    if (normalizeText(value)) {
       onTyping(true);
       idle.current = setTimeout(() => onTyping(false), idleMs);
     } else {

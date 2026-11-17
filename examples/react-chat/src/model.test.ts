@@ -8,12 +8,15 @@ import {
   type ChannelRoot,
   type ChatPresence,
   cleanText,
+  defaultChannels,
   makeUser,
   type Message,
   messagesMax,
   newId,
   normalizeText,
+  readChannels,
   readMessage,
+  readMessages,
   type PeerColor,
   resolveIdentity,
   roomPrefix,
@@ -214,6 +217,46 @@ describe('readMessage', () => {
       reactions: {},
       replies: [],
     });
+  });
+});
+
+describe('remote text', () => {
+  it('cleans and caps text another client stored', () => {
+    const m = readMessage({ id: 'x', text: '\u202E' + 'a'.repeat(900) });
+    expect([...(m?.text ?? '')]).toHaveLength(500);
+    expect(m?.text.startsWith('a')).toBe(true);
+  });
+});
+
+describe('readMessages', () => {
+  it('reads a stored list and skips bad entries', () => {
+    expect(readMessages([message('m1'), 3, {}]).map((m) => m.id)).toEqual([
+      'm1',
+    ]);
+  });
+
+  it('treats anything but a list as empty', () => {
+    expect(readMessages({})).toEqual([]);
+    expect(readMessages('x')).toEqual([]);
+  });
+});
+
+describe('readChannels', () => {
+  it('keeps usable channels', () => {
+    expect(readChannels([{ id: 'ops', name: 'ops' }])).toEqual([
+      { id: 'ops', name: 'ops' },
+    ]);
+  });
+
+  it('drops ids that cannot go into a key, and duplicates', () => {
+    expect(
+      readChannels([{ id: 'ok' }, { id: '../x' }, {}, { id: 'ok' }]),
+    ).toEqual([{ id: 'ok', name: 'ok' }]);
+  });
+
+  it('falls back to the default channels', () => {
+    expect(readChannels({})).toBe(defaultChannels);
+    expect(readChannels([{}])).toBe(defaultChannels);
   });
 });
 

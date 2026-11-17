@@ -18,6 +18,7 @@ import {
   type ChatPresence,
   defaultChannels,
   makeUser,
+  readChannels,
   resolveIdentity,
   roomPrefix,
   seedRoot,
@@ -32,6 +33,14 @@ const initialPresence: ChatPresence = {
   channelId: 'general',
   typing: false,
 };
+
+// "Open another tab" must land in this room even after midnight UTC, when a
+// fresh load would pick the next day's key.
+const roomUrl = (() => {
+  const url = new URL(window.location.href);
+  url.searchParams.set('key', prefix);
+  return url.toString();
+})();
 
 /**
  * `App` connects to Yorkie and attaches the workspace document, which stays
@@ -73,6 +82,7 @@ function Workspace() {
   const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
   const [channelReady, setChannelReady] = useState(false);
   const [switchFailed, setSwitchFailed] = useState(false);
+  const [focusSwitch, setFocusSwitch] = useState(false);
   const offlineRef = useRef(false);
   const typing = useRef(false);
   const channelDoc = useRef<Document<ChannelRoot> | undefined>(undefined);
@@ -110,13 +120,19 @@ function Workspace() {
 
   const openChannel = useCallback(
     (channelId: string) => {
-      closeRail();
-      if (channelId === openId) return;
+      if (channelId === openId) {
+        closeRail();
+        return;
+      }
+      // The trigger belongs to the channel view being replaced: the new one
+      // takes focus on its own channel button instead.
+      setFocusSwitch(railOpen);
+      setRailOpen(false);
       setOpenId(channelId);
       typing.current = false;
       update((_, presence) => presence.set({ channelId, typing: false }));
     },
-    [closeRail, openId, update],
+    [closeRail, openId, railOpen, update],
   );
 
   // Presence changes go to everyone, so only send the typing flag when it
@@ -139,6 +155,18 @@ function Workspace() {
     channelDoc.current = doc;
     setChannelReady(!!doc);
   }, []);
+
+  // Back online, marks come off once the channel's changes are actually
+  // pushed, which can be later than the switch when the server is slow.
+  useEffect(() => {
+    const ch = channelDoc.current;
+    if (offline || pendingIds.size === 0 || !ch || !channelReady) return;
+    return ch.subscribe('sync', (event) => {
+      if (event.value === 'synced' && !ch.hasLocalChanges()) {
+        setPendingIds(new Set());
+      }
+    });
+  }, [offline, pendingIds, channelReady]);
 
   /**
    * Offline pauses both documents with `SyncMode.Manual`. That ends their
@@ -177,21 +205,38 @@ function Workspace() {
       try {
         await client.changeSyncMode(ch, SyncMode.Realtime);
         await client.changeSyncMode(ws, SyncMode.Realtime);
-        // Realtime pushes what waited; syncing here only tells us when.
-        await Promise.allSettled([client.sync(ch), client.sync(ws)]);
-        offlineRef.current = false;
-        setOffline(false);
-        setPendingIds(new Set());
       } catch (err) {
+        // Stay offline as a whole rather than half online.
         console.error('Could not go online', err);
         setSwitchFailed(true);
+        await Promise.allSettled([
+          client.changeSyncMode(ch, SyncMode.Manual),
+          client.changeSyncMode(ws, SyncMode.Manual),
+        ]);
+        setSwitching(false);
+        return;
+      }
+      offlineRef.current = false;
+      setOffline(false);
+      // Realtime pushes what waited; this sync only tells us when. If it
+      // fails, the marks stay until a later sync succeeds (effect above).
+      const [pushed] = await Promise.allSettled([
+        client.sync(ch),
+        client.sync(ws),
+      ]);
+      if (pushed.status === 'fulfilled' && !ch.hasLocalChanges()) {
+        setPendingIds(new Set());
       }
     }
     setSwitching(false);
   };
 
-  const channel =
-    root.channels?.find((c) => c.id === openId) ?? defaultChannels[0];
+  const channels = useMemo(() => readChannels(root.channels), [root.channels]);
+  const channel = channels.find((c) => c.id === openId) ?? channels[0];
+  const channelSeed = useMemo(
+    () => seedRoot(channel.id, new Date()),
+    [channel.id],
+  );
 
   let status: Status = 'offline';
   if (error) status = 'error';
@@ -201,7 +246,7 @@ function Workspace() {
 
   return (
     <div className="chat">
-      <ExampleHeader title="React Chat" status={status}>
+      <ExampleHeader title="React Chat" status={status} href={roomUrl}>
         {!loading && !error && (
           <button
             type="button"
@@ -238,7 +283,7 @@ function Workspace() {
       ) : (
         <div className="chat__body" data-rail-open={railOpen || undefined}>
           <ChannelRail
-            channels={root.channels}
+            channels={channels}
             people={people}
             me={me}
             openId={openId}
@@ -260,7 +305,7 @@ function Workspace() {
           <DocumentProvider<ChannelRoot>
             key={channel.id}
             docKey={channelKey(prefix, channel.id)}
-            initialRoot={seedRoot(channel.id, new Date())}
+            initialRoot={channelSeed}
             disablePresence
           >
             <ChannelView
@@ -268,6 +313,8 @@ function Workspace() {
               me={me}
               people={people}
               offline={offline}
+              switching={switching}
+              focusSwitch={focusSwitch}
               pendingIds={pendingIds}
               setTyping={setTyping}
               onWrite={onWrite}

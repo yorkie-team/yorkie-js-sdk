@@ -12,6 +12,8 @@ const statusLabels: Record<Status, string> = {
 interface ExampleHeaderProps {
   title: string;
   status: Status;
+  /** Where "another tab" leads; defaults to this page. */
+  href?: string;
   children?: ReactNode;
 }
 
@@ -23,6 +25,7 @@ interface ExampleHeaderProps {
 export default function ExampleHeader({
   title,
   status,
+  href = window.location.href,
   children,
 }: ExampleHeaderProps) {
   return (
@@ -31,7 +34,7 @@ export default function ExampleHeader({
         <p className="example-header__title">{title}</p>
         <p className="example-header__hint">
           Chat with yourself — open this page in{' '}
-          <a href={window.location.href} target="_blank" rel="noreferrer">
+          <a href={href} target="_blank" rel="noreferrer">
             another tab
           </a>{' '}
           to see messages sync.

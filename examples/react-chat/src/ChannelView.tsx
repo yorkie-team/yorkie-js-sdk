@@ -12,7 +12,7 @@ import {
   emptyReactions,
   type Message,
   newId,
-  readMessage,
+  readMessages,
   toggleReaction,
 } from './model';
 import ThreadSheet from './ThreadSheet';
@@ -22,6 +22,10 @@ type Props = {
   me: ChatPresence;
   people: Array<ChatPresence>;
   offline: boolean;
+  /** Going on or offline: hold the box so nothing lands mid-switch. */
+  switching: boolean;
+  /** Take focus on the channel button: the rail it was opened from closed. */
+  focusSwitch: boolean;
   pendingIds: Set<string>;
   setTyping: (typing: boolean) => void;
   /** Called with each id this pane writes, so it can be marked while offline. */
@@ -46,6 +50,8 @@ export default function ChannelView({
   me,
   people,
   offline,
+  switching,
+  focusSwitch,
   pendingIds,
   setTyping,
   onWrite,
@@ -55,6 +61,7 @@ export default function ChannelView({
   const { doc, root, update, loading, error } = useDocument<ChannelRoot>();
   const [threadId, setThreadId] = useState<string | undefined>(undefined);
   const threadTrigger = useRef<HTMLButtonElement | undefined>(undefined);
+  const switchButton = useRef<HTMLButtonElement>(null);
   const ready = !!doc && !loading && !error;
 
   useEffect(() => {
@@ -62,13 +69,18 @@ export default function ChannelView({
     return () => onDoc(undefined);
   }, [ready, doc, onDoc]);
 
+  useEffect(() => {
+    if (focusSwitch) switchButton.current?.focus();
+    // Only on mount: this view is keyed by channel.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const here = people.filter((p) => p.channelId === channel.id);
   const typers = here.filter((p) => p.typing && p.userId !== me.userId);
-  const messages = root.messages ?? [];
-  const stored = threadId
-    ? messages.find((m) => m?.id === threadId)
-    : undefined;
-  const thread = stored ? readMessage(stored) : undefined;
+  // Read through `readMessages`: in a public room `messages` itself may be
+  // anything, not only the messages in it.
+  const messages = readMessages(root.messages);
+  const thread = threadId ? messages.find((m) => m.id === threadId) : undefined;
 
   // If the thread's message goes away under it (trimmed past the cap by
   // someone else), `thread` is undefined and the sheet simply closes.
@@ -108,6 +120,7 @@ export default function ChannelView({
     <main className="channel" aria-label={`#${channel.name}`}>
       <div className="channel__head">
         <button
+          ref={switchButton}
           type="button"
           className="channel__switch"
           aria-label={`#${channel.name}, show channels`}
@@ -172,7 +185,7 @@ export default function ChannelView({
         }
         onSend={send}
         onTyping={setTyping}
-        disabled={!ready}
+        disabled={!ready || switching}
       />
 
       {thread && (

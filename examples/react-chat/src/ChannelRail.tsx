@@ -33,6 +33,7 @@ type Leaving = { key: string; channelId: string; color: ChatPresence['color'] };
  */
 function useLeavingDots(people: Array<ChatPresence>): Array<Leaving> {
   const before = useRef<Map<string, ChatPresence>>(new Map());
+  const timers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const [leaving, setLeaving] = useState<Array<Leaving>>([]);
 
   useEffect(() => {
@@ -49,13 +50,23 @@ function useLeavingDots(people: Array<ChatPresence>): Array<Leaving> {
     }
     before.current = now;
     if (!gone.length) return;
-    const show = setTimeout(() => setLeaving((l) => [...l, ...gone]), 0);
-    setTimeout(
-      () => setLeaving((l) => l.filter((x) => !gone.includes(x))),
-      leaveMs,
-    );
-    return () => clearTimeout(show);
+    // Show the ghosts, then drop them after one exit. Neither timer is
+    // cancelled by the next presence change, so a burst keeps every ghost.
+    const later = (fn: () => void, ms: number) => {
+      const t = setTimeout(() => {
+        timers.current.delete(t);
+        fn();
+      }, ms);
+      timers.current.add(t);
+    };
+    later(() => setLeaving((l) => [...l, ...gone]), 0);
+    later(() => setLeaving((l) => l.filter((x) => !gone.includes(x))), leaveMs);
   }, [people]);
+
+  useEffect(() => {
+    const pending = timers.current;
+    return () => pending.forEach(clearTimeout);
+  }, []);
 
   return leaving;
 }

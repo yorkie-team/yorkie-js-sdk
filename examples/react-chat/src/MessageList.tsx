@@ -1,11 +1,10 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ReactIcon } from './icons';
 import {
   type ChatPresence,
   emojis,
   type Message,
   reactionCount,
-  readMessage,
   type Reply,
 } from './model';
 
@@ -58,6 +57,7 @@ export function MessageBody({
 }
 
 type Props = {
+  /** Already read through `readMessages`. */
   messages: Array<Message>;
   me: ChatPresence;
   pendingIds: Set<string>;
@@ -70,7 +70,7 @@ type Props = {
  * newest one unless the reader has scrolled up.
  */
 export default function MessageList({
-  messages: stored,
+  messages,
   me,
   pendingIds,
   onReact,
@@ -80,15 +80,10 @@ export default function MessageList({
   const pinned = useRef(true);
   const pickerTrigger = useRef<HTMLButtonElement | undefined>(undefined);
   const [pickerFor, setPickerFor] = useState<string | undefined>(undefined);
-  const messages = useMemo(
-    () => Array.from(stored, readMessage).filter((m): m is Message => !!m),
-    [stored],
-  );
-
   useLayoutEffect(() => {
     const el = list.current;
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages.length]);
 
   const closePicker = () => {
     setPickerFor(undefined);
