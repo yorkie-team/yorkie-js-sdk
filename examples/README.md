@@ -42,6 +42,7 @@ After the example is merged to the `main` branch, it is automatically deployed t
 - [nextjs-scheduler](nextjs-scheduler/README.md)
 - [nextjs-todolist](nextjs-todolist/README.md)
 - [profile-stack](profile-stack/README.md)
+- [react-chat](react-chat/README.md)
 - [react-document-limit](react-document-limit/README.md)
 - [react-flow](react-flow/README.md)
 - [react-page-view-counter](react-page-view-counter/README.md)

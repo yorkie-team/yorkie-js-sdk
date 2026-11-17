@@ -1,0 +1,950 @@
+/* yorkie.dev's Shared Canvas: warm neutrals, orange for the brand, and the
+ * other hues for people only. */
+:root {
+  color-scheme: light;
+  --gray-900: #332e2b;
+  --gray-800: #514c49;
+  --gray-700: #6e6966;
+  --gray-600: #807b78;
+  --gray-500: #a6a19e;
+  --gray-400: #c2bdba;
+  --gray-300: #e2dedb;
+  --gray-200: #efeceb;
+  --gray-100: #f5f3f1;
+  --gray-50: #faf8f6;
+  --gray-000: #fefdfb;
+  --orange-0: #fc8539;
+  --orange-dark: #f27b2f;
+  --orange-alpha: rgb(252 133 57 / 32%);
+  --success: #10b266;
+  --danger: #e93d47;
+  --blue: #3c9af1;
+  --green: #23c176;
+  --purple: #855cf9;
+  --yellow: #fdc433;
+  --red: #f44954;
+  --font:
+    Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --rail-width: 176px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--gray-000);
+  color: var(--gray-900);
+  font: 14px/22px var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--orange-alpha);
+}
+
+:focus-visible {
+  outline: 2px solid var(--orange-0);
+  outline-offset: 2px;
+}
+
+button,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+h2 {
+  margin: 0;
+}
+
+/* People's colors. `data-color` is set on dots, avatars and own reactions. */
+[data-color='blue'] {
+  --peer: var(--blue);
+  --peer-ink: #fff;
+}
+[data-color='green'] {
+  --peer: var(--green);
+  --peer-ink: #fff;
+}
+[data-color='purple'] {
+  --peer: var(--purple);
+  --peer-ink: #fff;
+}
+[data-color='yellow'] {
+  --peer: var(--yellow);
+  --peer-ink: var(--gray-900);
+}
+[data-color='red'] {
+  --peer: var(--red);
+  --peer-ink: #fff;
+}
+[data-color='orange'] {
+  --peer: var(--orange-0);
+  --peer-ink: #fff;
+}
+
+/* Layout */
+.chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  container: chat / inline-size;
+}
+
+.chat__body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.state-message {
+  margin: 48px 16px;
+  color: var(--gray-700);
+  text-align: center;
+}
+
+/* Example header (shared by the examples) */
+.example-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
+  min-height: 56px;
+  padding: 8px 16px;
+  background: var(--gray-000);
+  border-bottom: 1px solid var(--gray-300);
+}
+
+.example-header__intro {
+  min-width: 0;
+}
+
+.example-header__title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.example-header__hint {
+  margin: 0;
+  color: var(--gray-700);
+}
+
+.example-header a {
+  color: var(--gray-900);
+  text-decoration: underline;
+  text-decoration-color: var(--orange-0);
+  text-underline-offset: 3px;
+  border-radius: 2px;
+}
+
+.example-header a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.example-header__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+.status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gray-500);
+}
+
+.status[data-status='connected'] .status__dot {
+  background: var(--success);
+}
+
+.status[data-status='error'] .status__dot {
+  background: var(--danger);
+}
+
+/* Rail */
+.rail {
+  flex: none;
+  width: var(--rail-width);
+  overflow-y: auto;
+  padding: 8px 0 16px;
+  background: var(--gray-50);
+  border-right: 1px solid var(--gray-400);
+}
+
+.rail__heading {
+  padding: 16px 16px 4px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.rail__heading:first-child {
+  padding-top: 8px;
+}
+
+.rail__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail__channel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 16px;
+  border: 0;
+  background: none;
+  color: var(--gray-700);
+  text-align: left;
+  transition: background-color 0.2s;
+}
+
+.rail__channel:hover:not(:disabled) {
+  background: var(--gray-100);
+}
+
+.rail__channel[aria-current='page'] {
+  background: var(--gray-200);
+  color: var(--gray-900);
+  font-weight: 600;
+}
+
+.rail__channel[aria-current='page'] .rail__hash {
+  color: var(--orange-dark);
+}
+
+.rail__channel:disabled {
+  color: var(--gray-500);
+}
+
+.rail__channel:focus-visible {
+  outline-offset: -2px;
+}
+
+.rail__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail__hash {
+  margin-right: 2px;
+  color: var(--gray-500);
+}
+
+.dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 3px;
+  max-width: 56px;
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--peer, var(--gray-400));
+}
+
+.rail__person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 16px;
+  color: var(--gray-800);
+}
+
+.rail__person-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail__you {
+  color: var(--gray-600);
+}
+
+.rail__alone {
+  margin: 4px 16px 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--gray-700);
+}
+
+/* Channel */
+.channel {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.channel__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--gray-300);
+}
+
+.channel__title {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.channel__here {
+  margin: 0 0 0 auto;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+/* Shown instead of the rail in narrow panes. */
+.channel__switch {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: -8px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.channel__switch:hover {
+  background: var(--gray-100);
+}
+
+/* Messages */
+.messages {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 8px 0;
+  overflow-y: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-400) transparent;
+}
+
+.message {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  padding: 6px 16px;
+}
+
+.message[data-compact] {
+  padding-top: 0;
+}
+
+.message:hover,
+.message:focus-within {
+  background: var(--gray-50);
+}
+
+.avatar,
+.avatar-gap {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: var(--peer);
+  color: var(--peer-ink);
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.message__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.message__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+
+.message__name {
+  font-weight: 600;
+}
+
+.message__time {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--gray-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.message__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.message__pending {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--gray-700);
+}
+
+.message__pending::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border: 1px solid var(--gray-600);
+  border-radius: 50%;
+  vertical-align: 1px;
+}
+
+.message__extras {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--gray-300);
+  border-radius: 12px;
+  background: var(--gray-000);
+  font-size: 12px;
+  line-height: 16px;
+  transition: background-color 0.2s;
+}
+
+.reaction:hover {
+  background: var(--gray-100);
+}
+
+/* Your own reaction carries your color. */
+.reaction[aria-pressed='true'] {
+  border-color: var(--peer);
+  background: color-mix(in srgb, var(--peer) 16%, var(--gray-000));
+}
+
+.reaction__count {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.message__replies {
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--gray-900);
+  text-decoration: underline;
+  text-decoration-color: var(--orange-0);
+  text-underline-offset: 3px;
+}
+
+.message__actions {
+  position: absolute;
+  top: -12px;
+  right: 16px;
+  display: flex;
+  /* Hidden but still in the tab order, so a keyboard can reach a message's
+   * first reaction or reply: focusing it reveals the bar. */
+  opacity: 0;
+  pointer-events: none;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--gray-400);
+  border-radius: var(--radius-sm);
+  background: var(--gray-000);
+  box-shadow: 0 8px 8px -8px rgb(0 0 0 / 20%);
+}
+
+.message:hover .message__actions,
+.message:focus-within .message__actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Touch screens have no hover: keep the actions visible. */
+@media (hover: none) {
+  .message__actions {
+    position: static;
+    display: flex;
+    opacity: 1;
+    pointer-events: auto;
+    align-self: flex-start;
+    border: 0;
+    box-shadow: none;
+    background: none;
+  }
+}
+
+.icon-button,
+.text-button {
+  display: inline-grid;
+  place-items: center;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--gray-700);
+  transition: background-color 0.2s;
+}
+
+.icon-button {
+  width: 28px;
+}
+
+.text-button {
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.icon-button:hover,
+.text-button:hover {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+.picker {
+  display: inline-flex;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 2px;
+  border: 1px solid var(--gray-400);
+  border-radius: var(--radius-sm);
+  background: var(--gray-000);
+}
+
+.picker__emoji {
+  width: 32px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: 16px;
+}
+
+.picker__emoji:hover {
+  background: var(--gray-100);
+}
+
+/* Typing line and composer */
+.typing {
+  flex: none;
+  min-height: 18px;
+  margin: 0;
+  padding: 0 16px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--gray-700);
+}
+
+.composer {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 0 16px 12px;
+  padding: 4px 4px 4px 12px;
+  border: 1px solid var(--gray-400);
+  border-radius: var(--radius-sm);
+  background: var(--gray-000);
+}
+
+.composer:focus-within {
+  border-color: var(--gray-700);
+}
+
+.composer__input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: none;
+  caret-color: var(--orange-0);
+}
+
+.composer__input::placeholder {
+  color: var(--gray-600);
+}
+
+.composer__count {
+  align-self: center;
+  font-size: 12px;
+  color: var(--gray-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.composer__count[data-over] {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.composer__send {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--orange-0);
+  color: #fff;
+  transition: background-color 0.2s;
+}
+
+.composer__send:hover:not(:disabled) {
+  background: var(--orange-dark);
+}
+
+.composer__send:disabled {
+  background: var(--gray-200);
+  color: var(--gray-500);
+}
+
+/* Thread sheet */
+.thread {
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: min(320px, 100%);
+  background: var(--gray-000);
+  border-left: 1px solid var(--gray-400);
+  box-shadow: 0 20px 24px -12px rgb(0 0 0 / 20%);
+}
+
+.thread__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 8px 0 16px;
+  border-bottom: 1px solid var(--gray-300);
+}
+
+.thread__title {
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 600;
+}
+
+.thread__parent {
+  padding-bottom: 12px;
+}
+
+.thread__count {
+  margin: 0 16px 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--gray-300);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--gray-700);
+}
+
+.thread .composer {
+  margin-top: 8px;
+}
+
+/* The homepage says how to try it; in a pane the hint only costs a row. */
+@container chat (max-width: 719px) {
+  .example-header__hint {
+    display: none;
+  }
+}
+
+/* Narrow panes: the rail becomes a list over the channel. */
+@container chat (max-width: 479px) {
+  /* Hidden with visibility, not display: showing it again must not replay
+   * every dot's arrival. Hidden, it is also out of the tab order. */
+  .rail {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 3;
+    visibility: hidden;
+    width: min(240px, 85%);
+    box-shadow: 0 20px 24px -12px rgb(0 0 0 / 20%);
+  }
+
+  .chat__body[data-rail-open] .rail {
+    visibility: visible;
+  }
+
+  .channel__title {
+    display: none;
+  }
+
+  .channel__switch {
+    display: inline-flex;
+  }
+
+  .thread {
+    width: 100%;
+    border-left: 0;
+  }
+}
+
+/* The yorkie.dev preview can be short: keep only the essentials. */
+@media (max-height: 420px) {
+  .example-header {
+    min-height: 0;
+    padding-block: 4px;
+  }
+
+  .example-header__hint {
+    display: none;
+  }
+
+  .channel__head,
+  .thread__head {
+    min-height: 40px;
+  }
+
+  .rail__heading {
+    padding-top: 8px;
+  }
+}
+
+/* Online/offline switch */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--gray-400);
+  border-radius: var(--radius-sm);
+  background: var(--gray-000);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.switch:hover:not(:disabled) {
+  background: var(--gray-100);
+}
+
+.switch__track {
+  position: relative;
+  width: 24px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--gray-400);
+  transition: background-color 0.2s;
+}
+
+.switch[data-online] .switch__track {
+  background: var(--success);
+}
+
+.switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--gray-000);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.switch[data-online] .switch__thumb {
+  transform: translateX(10px);
+}
+
+/* While offline the page itself says so: the composer keeps working, the
+ * rest of the room is out of reach. */
+.status[data-status='offline'] .status__dot {
+  background: var(--gray-500);
+}
+
+.scrim {
+  display: none;
+}
+
+@container chat (max-width: 479px) {
+  .scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: block;
+    border: 0;
+    background: rgb(51 46 43 / 24%);
+    cursor: default;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch__thumb {
+    transition: none;
+  }
+}
+
+/* Wide panes have room for the thread beside the messages. */
+@container chat (min-width: 900px) {
+  .channel:has(.thread) {
+    padding-right: 320px;
+  }
+
+  .thread {
+    box-shadow: none;
+  }
+}
+
+.switch__error {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--danger);
+}
+
+/* Review fixes: contrast, measure, orange scope, thread width, motion. */
+.composer__input::placeholder,
+.rail__you {
+  color: var(--gray-700);
+}
+
+.message__text {
+  max-width: 72ch;
+}
+
+.channel__switch .rail__hash {
+  color: var(--orange-dark);
+}
+
+.typing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.typing__dots {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.typing__dots .dot {
+  width: 6px;
+  height: 6px;
+}
+
+/* Less than ~280px of messages would be left beside the sheet: cover, and
+ * take what it covers out of the tab order. */
+@container chat (max-width: 775px) {
+  .thread {
+    width: 100%;
+    border-left: 0;
+    box-shadow: none;
+  }
+
+  .channel:has(> .thread) > :not(.thread) {
+    visibility: hidden;
+  }
+}
+
+/* The signature moment: a person's dot arrives on the row they moved to. */
+@keyframes dot-arrive {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+
+@keyframes dot-leave {
+  to {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+
+/* Only the channel rows' dots move: the online list is a list. */
+.rail__channel .dot,
+.typing__dots .dot {
+  animation: dot-arrive 0.36s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rail__channel .dot[data-leaving] {
+  animation: dot-leave 0.36s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail__channel .dot,
+  .typing__dots .dot {
+    animation: none;
+  }
+
+  .rail__channel .dot[data-leaving] {
+    display: none;
+  }
+}
