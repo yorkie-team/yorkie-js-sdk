@@ -5,6 +5,7 @@ import {
   addReply,
   channelKey,
   distinctFrom,
+  emptyReactions,
   type ChannelRoot,
   cleanText,
   makeUser,
@@ -24,8 +25,8 @@ function message(id: string, text = id): Message {
     name: 'Ari',
     color: 'blue',
     text,
-    at: now.getTime(),
-    reactions: {},
+    at: now.toISOString(),
+    reactions: emptyReactions(),
     replies: [],
   };
 }
@@ -115,6 +116,12 @@ describe('distinctFrom', () => {
 });
 
 describe('seedRoot', () => {
+  it('starts every message with an empty object per emoji', () => {
+    expect(Object.keys(seedRoot('general', now).messages[0].reactions)).toEqual(
+      ['👍', '🎉', '👀', '❤️', '😂'],
+    );
+  });
+
   it('greets #general with what to try', () => {
     const { messages } = seedRoot('general', now);
     expect(messages).toHaveLength(1);
@@ -145,7 +152,7 @@ describe('addMessage', () => {
 });
 
 describe('toggleReaction', () => {
-  it('counts each person once and removes an emptied emoji', () => {
+  it('counts each person once and keeps an emptied emoji', () => {
     const doc = channelDoc();
     const count = () =>
       Object.keys(doc.getRoot().messages[0].reactions['👍'] ?? {}).length;
@@ -158,7 +165,14 @@ describe('toggleReaction', () => {
     expect(count()).toBe(1);
 
     doc.update((root) => toggleReaction(root, 'm1', '👍', 'u2'));
-    expect(doc.getRoot().messages[0].reactions['👍']).toBeUndefined();
+    expect(count()).toBe(0);
+    expect(doc.getRoot().messages[0].reactions['👍']).toEqual({});
+  });
+
+  it('ignores an emoji outside the set', () => {
+    const doc = channelDoc();
+    doc.update((root) => toggleReaction(root, 'm1', '🦄', 'u1'));
+    expect(doc.getRoot().messages[0].reactions['🦄']).toBeUndefined();
   });
 });
 

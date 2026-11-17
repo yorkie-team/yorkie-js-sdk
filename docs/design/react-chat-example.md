@@ -79,7 +79,7 @@ type Message = {
   name: string;
   color: PeerColor;  // 'blue' | 'green' | 'purple' | 'yellow' | 'red'
   text: string;
-  at: number;        // ms epoch, sender clock, display only
+  at: string;        // ISO time, sender clock, display only
   reactions: { [emoji: string]: { [userId: string]: true } };
   replies: Reply[];  // Reply = Message without reactions and replies
 };
@@ -97,7 +97,11 @@ and one tab, so stored identity would make all panes the same person.
 
 A reaction is the key `reactions[emoji][userId]`. Toggling sets or deletes
 that key. Two panes clicking the same emoji at once write different keys, so
-both survive and the chip shows 2. A `Counter` is not used: it cannot tell
+both survive and the chip shows 2. This holds only if `reactions[emoji]`
+already exists: if the first reaction created it, two first reactions would
+both set the same `emoji` key and one would be lost. So a message is created
+with one empty object per emoji in the fixed set (👍 🎉 👀 ❤️ 😂), and an
+emptied emoji is never deleted. A `Counter` is not used: it cannot tell
 "Ari clicked twice" from "Ari and Ben clicked once", and the toggle would
 drift.
 

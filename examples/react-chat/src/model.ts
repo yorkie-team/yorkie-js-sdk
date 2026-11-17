@@ -11,8 +11,12 @@ export type Reply = {
   name: string;
   color: PeerColor | 'orange';
   text: string;
-  /** Sender's clock, for display only; order is the array order. */
-  at: number;
+  /**
+   * Sender's clock as an ISO string, for display only; order is the array
+   * order. (A millisecond number would not fit Yorkie's int32 and come back
+   * as a bigint.)
+   */
+  at: string;
 };
 
 /**
@@ -160,8 +164,8 @@ export function seedRoot(channelId: string, now: Date): ChannelRoot {
     name: 'Yorkie',
     color: 'orange',
     text: seedText[channelId] ?? 'Say hello.',
-    at: now.getTime(),
-    reactions: {},
+    at: now.toISOString(),
+    reactions: emptyReactions(),
     replies: [],
   };
   return { messages: [seed] as JSONArray<Message> };
@@ -180,6 +184,17 @@ export function addReply(root: ChannelRoot, messageId: string, r: Reply): void {
   root.messages.find((m) => m.id === messageId)?.replies.push(r);
 }
 
+/**
+ * `emptyReactions` is a new message's reactions: one empty object per emoji,
+ * made up front. If the first reaction created `reactions[emoji]`, two people
+ * reacting at once would both create that key, and only one would survive.
+ * With the objects already there, each writes its own `userId` key inside.
+ * For the same reason an emoji is never deleted, only emptied.
+ */
+export function emptyReactions(): Record<string, Record<string, true>> {
+  return Object.fromEntries(emojis.map((e) => [e, {}]));
+}
+
 /** `toggleReaction` adds or removes `userId`'s `emoji` on `messageId`. */
 export function toggleReaction(
   root: ChannelRoot,
@@ -187,21 +202,12 @@ export function toggleReaction(
   emoji: string,
   userId: string,
 ): void {
-  const m = root.messages.find((m) => m.id === messageId);
-  if (!m) return;
-  const reactions = m.reactions as JSONObject<
-    Record<string, Record<string, true>>
-  >;
-  const people = reactions[emoji] as
-    | JSONObject<Record<string, true>>
-    | undefined;
-  if (!people) {
-    reactions[emoji] = { [userId]: true };
-  } else if (people[userId]) {
+  const people = root.messages.find((m) => m.id === messageId)?.reactions[
+    emoji
+  ] as JSONObject<Record<string, true>> | undefined;
+  if (!people) return;
+  if (people[userId]) {
     delete people[userId];
-    if (Object.keys(people).length === 0) {
-      delete reactions[emoji];
-    }
   } else {
     people[userId] = true;
   }

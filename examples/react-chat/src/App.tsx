@@ -8,14 +8,20 @@ import {
 } from '@yorkie-js/react';
 import ExampleHeader, { type Status } from './ExampleHeader';
 import ChannelRail from './ChannelRail';
+import ChannelView from './ChannelView';
 import {
+  channelKey,
+  type ChannelRoot,
   type ChatPresence,
   defaultChannels,
   distinctFrom,
   makeUser,
   roomPrefix,
+  seedRoot,
   type WorkspaceRoot,
 } from './model';
+
+const noop = () => {};
 
 // One person per page load, made outside React so StrictMode's double render
 // does not make two.
@@ -80,13 +86,33 @@ function Workspace() {
     }
   }, [loading, people, me, update]);
 
+  const [railOpen, setRailOpen] = useState(false);
+  const typing = useRef(false);
+  const noPending = useMemo(() => new Set<string>(), []);
+
   const openChannel = useCallback(
     (channelId: string) => {
       setOpenId(channelId);
+      setRailOpen(false);
+      typing.current = false;
       update((_, presence) => presence.set({ channelId, typing: false }));
     },
     [update],
   );
+
+  // Presence changes go to everyone, so only send the typing flag when it
+  // flips, not on every keystroke.
+  const setTyping = useCallback(
+    (next: boolean) => {
+      if (typing.current === next) return;
+      typing.current = next;
+      update((_, presence) => presence.set({ typing: next }));
+    },
+    [update],
+  );
+
+  const channel =
+    root.channels?.find((c) => c.id === openId) ?? defaultChannels[0];
 
   let status: Status = 'offline';
   if (error) status = 'error';
@@ -105,7 +131,7 @@ function Workspace() {
       ) : loading ? (
         <p className="state-message">Joining the workspace…</p>
       ) : (
-        <div className="chat__body">
+        <div className="chat__body" data-rail-open={railOpen || undefined}>
           <ChannelRail
             channels={root.channels}
             people={people}
@@ -114,7 +140,23 @@ function Workspace() {
             onOpen={openChannel}
             disabled={false}
           />
-          <main className="channel" />
+          <DocumentProvider<ChannelRoot>
+            key={channel.id}
+            docKey={channelKey(prefix, channel.id)}
+            initialRoot={seedRoot(channel.id, new Date())}
+            disablePresence
+          >
+            <ChannelView
+              channel={channel}
+              me={me}
+              people={people}
+              pendingIds={noPending}
+              setTyping={setTyping}
+              onWrite={noop}
+              onDoc={noop}
+              onShowChannels={() => setRailOpen(true)}
+            />
+          </DocumentProvider>
         </div>
       )}
     </div>
