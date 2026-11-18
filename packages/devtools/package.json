@@ -35,10 +35,5 @@
     "prettier": "3.7.4",
     "typescript": "5.9.3",
     "vitest": "^4.1.12"
-  },
-  "manifest": {
-    "permissions": [
-      "activeTab"
-    ]
   }
 }
