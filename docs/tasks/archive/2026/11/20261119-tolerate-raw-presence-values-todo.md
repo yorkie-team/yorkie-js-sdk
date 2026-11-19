@@ -1,7 +1,7 @@
 # Read a presence value that is not JSON as its raw text
 
 **Created**: 2026-11-19
-Client side of yorkie-team/yorkie#2284 (server side: yorkie#2386)
+Fixes #1509. Client side of yorkie-team/yorkie#2284 (server side: yorkie#2386)
 
 `fromPresence` (`api/converter.ts`) runs `JSON.parse` on every presence value
 with no guard. The wire contract (`docs/design/presence.md` in yorkie) says a
