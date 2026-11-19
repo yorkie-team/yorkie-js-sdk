@@ -20,6 +20,7 @@ import { timestampDate } from '@bufbuild/protobuf/wkt';
 import { ErrorInfoSchema } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb';
 import { Rule } from '@yorkie-js/schema';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { parseAttrValue } from '@yorkie-js/sdk/src/util/object';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import {
   PresenceChange,
@@ -1142,11 +1143,19 @@ function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
 
 /**
  * `fromPresence` converts the given Protobuf format to model format.
+ *
+ * Each value should be the JSON encoding of the value, but only the SDKs'
+ * write side enforces that: a Go app calling `SetJSON` with non-JSON text, or
+ * a client speaking the RPC API directly, can store raw text, and a server
+ * older than yorkie#2386 hands it on as-is. Parsing it unguarded threw out of
+ * `applyChangePack` before the checkpoint advanced, so the same change came
+ * back on every pull. `parseAttrValue` falls back to the raw text, which is
+ * also what the server's repair of that value reads as.
  */
 function fromPresence<P extends Indexable>(pbPresence: PbPresence): P {
-  const data: Record<string, string> = {};
+  const data: Record<string, unknown> = {};
   Object.entries(pbPresence.data).forEach(([key, value]) => {
-    data[key] = JSON.parse(value);
+    data[key] = parseAttrValue(value);
   });
 
   return data as P;
