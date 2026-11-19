@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-18
+updated: 2026-11-19
 ---
 
 # Tasks Archive
@@ -8,12 +8,13 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 74
+Total archived tasks: 75
 
-## 2026/11 (10 tasks)
+## 2026/11 (11 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Read a presence value that is not JSON as its raw text (2026-11-19) | [20261119-tolerate-raw-presence-values-todo.md](./2026/11/20261119-tolerate-raw-presence-values-todo.md) | [20261119-tolerate-raw-presence-values-lessons.md](./2026/11/20261119-tolerate-raw-presence-values-lessons.md) |
 | React Chat Example Implementation Plan (2026-11-18) | [20261118-react-chat-example-todo.md](./2026/11/20261118-react-chat-example-todo.md) | [20261118-react-chat-example-lessons.md](./2026/11/20261118-react-chat-example-lessons.md) |
 | Drop the unused activeTab permission from the devtools manifest (2026-11-18) | [20261118-devtools-activetab-todo.md](./2026/11/20261118-devtools-activetab-todo.md) | [20261118-devtools-activetab-lessons.md](./2026/11/20261118-devtools-activetab-lessons.md) |
 | Keep `__yson_`-prefixed user keys out of the marker namespace (2026-11-15) | [20261115-yson-reserved-key-escape-todo.md](./2026/11/20261115-yson-reserved-key-escape-todo.md) | [20261115-yson-reserved-key-escape-lessons.md](./2026/11/20261115-yson-reserved-key-escape-lessons.md) |
