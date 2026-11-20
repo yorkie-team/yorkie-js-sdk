@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-19
+updated: 2026-11-20
 ---
 
 # Tasks Archive
@@ -8,9 +8,9 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 75
+Total archived tasks: 76
 
-## 2026/11 (11 tasks)
+## 2026/11 (12 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
@@ -22,6 +22,7 @@ Total archived tasks: 75
 | Polish the example apps into one family (2026-11-14) | [20261114-examples-polish-todo.md](./2026/11/20261114-examples-polish-todo.md) | [20261114-examples-polish-lessons.md](./2026/11/20261114-examples-polish-lessons.md) |
 | Channel detach removes a re-attached channel of the same key (2026-11-10) | [20261110-channel-detach-race-todo.md](./2026/11/20261110-channel-detach-race-todo.md) | [20261110-channel-detach-race-lessons.md](./2026/11/20261110-channel-detach-race-lessons.md) |
 | Validate keepalive teardown across in-flight work (2026-11-09) | [20261109-pr1522-review-todo.md](./2026/11/20261109-pr1522-review-todo.md) | [20261109-pr1522-review-lessons.md](./2026/11/20261109-pr1522-review-lessons.md) |
+| Skip every remote Increase that Go skips (2026-11-06) | [20261106-skip-unapplicable-plain-increase-todo.md](./2026/11/20261106-skip-unapplicable-plain-increase-todo.md) | [20261106-skip-unapplicable-plain-increase-lessons.md](./2026/11/20261106-skip-unapplicable-plain-increase-lessons.md) |
 | Reject `styleByPath(path)` for a path that names no node (2026-11-05) | [20261105-style-by-path-bounds-todo.md](./2026/11/20261105-style-by-path-bounds-todo.md) | [20261105-style-by-path-bounds-lessons.md](./2026/11/20261105-style-by-path-bounds-lessons.md) |
 | Tear down locally on `deactivate({ keepalive: true })` without the response (2026-11-05) | [20261105-keepalive-deactivate-local-teardown-todo.md](./2026/11/20261105-keepalive-deactivate-local-teardown-todo.md) | [20261105-keepalive-deactivate-local-teardown-lessons.md](./2026/11/20261105-keepalive-deactivate-local-teardown-lessons.md) |
 | Restore the full default export lost with the exports map in 0.7.26 (2026-11-03) | [20261103-default-export-parity-todo.md](./2026/11/20261103-default-export-parity-todo.md) | [20261103-default-export-parity-lessons.md](./2026/11/20261103-default-export-parity-lessons.md) |
