@@ -7,6 +7,18 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.29] - 2026-11-20
+
+### Added
+
+- Add a React chat example by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1557
+
+### Fixed
+
+- Read a presence value that is not JSON as its raw text by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1559. A Go app calling `SetJSON` with plain text, or a client speaking the RPC API directly, could store such a value, and parsing it threw out of the pull before the checkpoint advanced, so the document never synced again on any JS peer. Values are now decoded as JSON, else kept as text, which also matches the server's repair in yorkie v0.7.29 (yorkie-team/yorkie#2386).
+- Skip every remote Increase that Go skips by @oyobbeb in https://github.com/yorkie-team/yorkie-js-sdk/pull/1525. A remote Increase whose value is not a primitive, or whose delta a plain counter refuses, now drops with a warning on the pull path instead of throwing and failing every pull of the document. Local updates, undo and redo still throw.
+- Remove the unused `activeTab` permission from devtools by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1558, which the Chrome Web Store rejected the v0.7.28 submission for. The extension now requests no permissions.
+
 ## [v0.7.28] - 2026-11-16
 
 ### Changed
