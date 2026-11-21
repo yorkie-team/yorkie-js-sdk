@@ -418,8 +418,12 @@ describe('Auth Webhook', () => {
     // A long-lived client whose token aged past its lifetime while nothing
     // else asked the server for anything: the attach is the first request to
     // meet the expiry, and nothing after it retries on the app's behalf.
-    const authTokenInjector = vi.fn(async () => {
-      return `token-${Date.now() + ShortTokenLifetimeMs}`;
+    // Only the first token is short-lived, so the detach and deactivate at
+    // the end do not race a second expiry.
+    const authTokenInjector = vi.fn(async (reason?: string) => {
+      return reason
+        ? `token-${Date.now() + 1000 * 60 * 60}`
+        : `token-${Date.now() + ShortTokenLifetimeMs}`;
     });
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
@@ -449,7 +453,8 @@ describe('Auth Webhook', () => {
     // surface that error after asking for exactly one new token, not loop.
     // Only `AttachDocument` is guarded, so activate and deactivate pass.
     const attachOnlyAPIKey = await createWebhookProject(['AttachDocument']);
-    const authTokenInjector = vi.fn(async () => 'invalid-token');
+    let issued = 0;
+    const authTokenInjector = vi.fn(async () => `invalid-token-${++issued}`);
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
       apiKey: attachOnlyAPIKey,
@@ -469,6 +474,51 @@ describe('Auth Webhook', () => {
     );
     expect(authTokenInjector).toBeCalledTimes(2);
     expect(authTokenInjector).nthCalledWith(2, InvalidTokenErrorMessage);
+    // The attach was sent again, under the refreshed token.
+    const attaches = webhookCalls.filter(
+      (call) =>
+        call.method === 'AttachDocument' &&
+        call.token.startsWith('invalid-token-'),
+    );
+    expect(attaches.map((call) => call.token)).toEqual([
+      'invalid-token-1',
+      'invalid-token-2',
+    ]);
+
+    await client.deactivate();
+  });
+
+  it('should throw the injector error when the token refresh on attach fails', async ({
+    task,
+  }) => {
+    // The injector's rejection is what the app learns from, and it must be
+    // asked once: its error is not a server answer to handle again.
+    const attachOnlyAPIKey = await createWebhookProject(['AttachDocument']);
+    const authTokenInjector = vi.fn(async (reason?: string) => {
+      if (reason) {
+        throw new Error('token api unavailable');
+      }
+      return 'invalid-token';
+    });
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey: attachOnlyAPIKey,
+      authTokenInjector,
+    });
+    await client.activate();
+
+    const doc = new yorkie.Document<{ k1: string }>(
+      toDocKey(`${task.name}-${new Date().getTime()}`),
+    );
+    await assertThrowsAsync(
+      async () => {
+        await client.attach(doc, { syncMode: SyncMode.Manual });
+      },
+      Error,
+      /token api unavailable/,
+    );
+    expect(authTokenInjector).toBeCalledTimes(2);
+    expect(client.isActive()).toBe(true);
 
     await client.deactivate();
   });

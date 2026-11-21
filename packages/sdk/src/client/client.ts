@@ -276,8 +276,8 @@ export interface ClientOptions {
    * function on every 401, as before: it throws the function's error if the
    * function rejects, and the `ErrUnauthenticated` it received otherwise;
    * retrying it is up to the caller. `attach` does the same, except that once
-   * the function resolves it resends the attach under the new token, once,
-   * and throws only if that is refused too. The first try of `broadcast`
+   * the function resolves it resends the attach request under the new token,
+   * once, and throws whatever that resend throws. The first try of `broadcast`
    * calls it the same way and throws the function's error if it rejects;
    * otherwise `broadcast` retries as usual.
    *
@@ -640,6 +640,28 @@ function authRefreshDelay(failures: number): number {
   );
   const jitter = 1 + AuthRefreshBackoff.jitter * (Math.random() * 2 - 1);
   return Math.min(base * jitter, AuthRefreshBackoff.max);
+}
+
+/**
+ * `TokenRetry` records how far `Client.retryAfterTokenRefresh` got with one
+ * call: `refreshing` once it asked `authTokenInjector` for a new token,
+ * `resent` once that resolved and the call was sent again.
+ */
+type TokenRetry = { refreshing: boolean; resent: boolean };
+
+/**
+ * `isHandledByTokenRetry` reports whether `err` is one the token retry has
+ * already dealt with, so the caller must not pass it to `handleConnectError`:
+ * the injector's own rejection, which may be any error, a `ConnectError` from
+ * the app's token API included, and the resend's 401, which would otherwise
+ * ask the injector a second time. Any other error from the resend is the
+ * caller's to handle.
+ */
+function isHandledByTokenRetry(state: TokenRetry, err: unknown): boolean {
+  if (state.resent) {
+    return isErrorCode(err, Code.ErrUnauthenticated);
+  }
+  return state.refreshing;
 }
 
 /**
@@ -1346,10 +1368,9 @@ export class Client {
       // Set when the attach is abandoned because the session went away, so the
       // `catch` below knows the throw is not a connection error.
       let abandoned = false;
-      // Set once the attach RPC has already been answered with a 401 and
-      // retried under a new token, so the `catch` below does not ask
-      // `authTokenInjector` a second time for the retry's own 401.
-      let tokenRefreshed = false;
+      // The latest attach RPC's token refresh, so the `catch` below does not
+      // handle again what `retryAfterTokenRefresh` already handled.
+      let tokenRetry: TokenRetry = { refreshing: false, resent: false };
       const assertSession = () => {
         if (!ownsSession()) {
           abandoned = true;
@@ -1687,6 +1708,7 @@ export class Client {
           // earlier session, and this attach is the request they ride out on,
           // so it needs the presence-base fallback as much as a sync does.
           assertSession();
+          tokenRetry = { refreshing: false, resent: false };
           const res = await this.retryAfterTokenRefresh(
             () =>
               this.pushWithPresenceBase(
@@ -1708,10 +1730,8 @@ export class Client {
                     },
                   ),
               ),
-            () => {
-              assertSession();
-              tokenRefreshed = true;
-            },
+            assertSession,
+            tokenRetry,
           );
 
           assertSession();
@@ -1996,10 +2016,7 @@ export class Client {
         logger.error(`[AD] c:"${this.getKey()}" err :`, err);
         // An abandoned attach is a local lifecycle cancellation, not a
         // server error requiring connection recovery.
-        if (
-          !abandoned &&
-          !(tokenRefreshed && isErrorCode(err, Code.ErrUnauthenticated))
-        ) {
+        if (!abandoned && !isHandledByTokenRetry(tokenRetry, err)) {
           await this.handleConnectError(err, false, ownsSession);
         }
         throw err;
@@ -4118,15 +4135,23 @@ export class Client {
    * attach it already holds a good token for. Apps did not: a document stayed
    * unopened until a reload.
    *
-   * Resending is safe because the auth webhook is consulted before the server
-   * touches the document, so a refused request stored nothing. A rejection
-   * from the injector is thrown, as `handleConnectError` does for a single
-   * call, and so is the retry's own error. `beforeRetry` runs between the
-   * refresh and the retry; a throw there abandons the retry.
+   * Resending an attach is safe. The server consults the auth webhook before
+   * it touches the document, except when it rebinds a schema: that check runs
+   * after the document row and the client's attaching mark are written. A
+   * resend reuses both (`clients.AttachDocument` skips `TryAttaching` for a
+   * document already attaching), as an app-driven retry always did.
+   *
+   * `assertSession` runs before the refresh and again before the resend, so
+   * a session that went away asks for no token and sends nothing; its throw
+   * abandons the call. A rejection from the injector is thrown, as
+   * `handleConnectError` does for a single call, and so is whatever the
+   * resend throws. `state` records how far it got, for the caller's `catch`
+   * (see {@link isHandledByTokenRetry}).
    */
   private async retryAfterTokenRefresh<T>(
     send: () => Promise<T>,
-    beforeRetry: () => void,
+    assertSession: () => void,
+    state: TokenRetry,
   ): Promise<T> {
     try {
       return await send();
@@ -4138,8 +4163,11 @@ export class Client {
         throw err;
       }
 
+      assertSession();
+      state.refreshing = true;
       await this.refreshAuthToken(errorMetadataOf(err).reason, false);
-      beforeRetry();
+      assertSession();
+      state.resent = true;
       return await send();
     }
   }

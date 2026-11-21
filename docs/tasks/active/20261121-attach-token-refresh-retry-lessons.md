@@ -24,8 +24,17 @@ for a revoked user. The second test pins two.
 
 ## Self review
 
-One inline round over the full diff, no blocking findings. Checked: an
-injector rejection still surfaces the injector's error with one call, as
-before; a non-401 error from the retry still reaches `handleConnectError`, so
-`ErrClientNotActivated` still tears the client down; a session lost during the
-refresh abandons the retry through `assertSession`.
+Reviewer: `/code-review` (high) over `origin/main...HEAD`, the harness's own
+reviewer, not the CI lens panel.
+
+- Round 1 (correctness, tests): 10 findings. Fixed: the first test raced a
+  second 500ms expiry; the 401-twice test also passed on main (now asserts
+  two `AttachDocument` webhook calls, the second under the refreshed token);
+  an injector rejection that is a `ConnectError` reached `handleConnectError`
+  (now `isHandledByTokenRetry`, pinned by a test); the re-anchor's second
+  `attachOnce` shared the retry flag (state is per RPC now); the session is
+  checked before the refresh; the "stored nothing" claim was false on the
+  schema-rebind path (the server writes the doc row and attaching mark
+  first; the resend reuses them, comment corrected); task index. Deferred:
+  integration tests for a session lost mid-refresh and the store-backed
+  path (known limitation in the PR); the other one-shot calls (#1564).
