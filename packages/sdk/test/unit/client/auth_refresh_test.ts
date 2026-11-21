@@ -514,3 +514,75 @@ describe('Token refresh after a 401', () => {
     expect(injector).toHaveBeenCalledTimes(2);
   });
 });
+
+/**
+ * `yorkieError` builds a server-style error carrying the given Yorkie code.
+ */
+function yorkieError(code: string, connectCode: ConnectCode): ConnectError {
+  const info = create(ErrorInfoSchema, { metadata: { code } });
+  return new ConnectError(code, connectCode, {}, [
+    { desc: ErrorInfoSchema, value: info },
+  ]);
+}
+
+/**
+ * `activatedClient` returns a client forced into the active state, with the
+ * given injector and an `AttachDocument` that always answers 401.
+ */
+function activatedClient(
+  authTokenInjector: (reason?: string) => Promise<string>,
+) {
+  const client = newClient(authTokenInjector);
+  client.status = ClientStatus.Activated;
+  client.id = '000000000000000000000000';
+  client.actorID = '000000000000000000000000';
+  const attachDocument = vi.fn(async () => {
+    throw unauthenticated();
+  });
+  client.rpcClient = { attachDocument };
+  return { client, attachDocument };
+}
+
+describe('Token refresh on attach', () => {
+  it("throws the injector's ConnectError without handling it as the server's", async () => {
+    // An app whose token API is itself a Connect service can reject with a
+    // Yorkie-coded error. It is the injector's answer, not the server's, so
+    // `ErrClientNotFound` must not tear the client down, and nothing may ask
+    // the injector again.
+    const injectorErr = yorkieError(
+      Code.ErrClientNotFound,
+      ConnectCode.NotFound,
+    );
+    const injector = vi.fn(async (): Promise<string> => {
+      throw injectorErr;
+    });
+    const { client, attachDocument } = activatedClient(injector);
+
+    const doc = new yorkie.Document('k-injector-connect-error');
+    await expect(
+      client.attach(doc, { syncMode: SyncMode.Manual }),
+    ).rejects.toBe(injectorErr);
+    expect(injector).toHaveBeenCalledTimes(1);
+    expect(attachDocument).toHaveBeenCalledTimes(1);
+    expect(client.getStatus()).toBe(ClientStatus.Activated);
+  });
+
+  it('sends nothing more when the session goes away during the refresh', async () => {
+    let resolveToken!: (token: string) => void;
+    const injector = vi.fn(
+      () => new Promise<string>((resolve) => (resolveToken = resolve)),
+    );
+    const { client, attachDocument } = activatedClient(injector);
+
+    const doc = new yorkie.Document('k-session-lost');
+    const attaching = client.attach(doc, { syncMode: SyncMode.Manual });
+    await vi.waitFor(() => expect(injector).toHaveBeenCalledTimes(1));
+
+    // A `keepalive` deactivate tears the session down outside the queue.
+    client.deactivateInternal();
+    resolveToken('new-token');
+
+    await expect(attaching).rejects.toThrow(/lost its session/);
+    expect(attachDocument).toHaveBeenCalledTimes(1);
+  });
+});

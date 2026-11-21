@@ -643,25 +643,31 @@ function authRefreshDelay(failures: number): number {
 }
 
 /**
- * `TokenRetry` records how far `Client.retryAfterTokenRefresh` got with one
- * call: `refreshing` once it asked `authTokenInjector` for a new token,
- * `resent` once that resolved and the call was sent again.
- */
-type TokenRetry = { refreshing: boolean; resent: boolean };
-
-/**
- * `isHandledByTokenRetry` reports whether `err` is one the token retry has
- * already dealt with, so the caller must not pass it to `handleConnectError`:
+ * `tokenRetryHandled` holds the errors `Client.retryAfterTokenRefresh` has
+ * already dealt with, which its caller must not pass to `handleConnectError`:
  * the injector's own rejection, which may be any error, a `ConnectError` from
  * the app's token API included, and the resend's 401, which would otherwise
- * ask the injector a second time. Any other error from the resend is the
- * caller's to handle.
+ * ask the injector a second time. A rejection that is not an object cannot be
+ * held, and needs no holding: `handleConnectError` ignores it.
  */
-function isHandledByTokenRetry(state: TokenRetry, err: unknown): boolean {
-  if (state.resent) {
-    return isErrorCode(err, Code.ErrUnauthenticated);
+const tokenRetryHandled = new WeakSet<object>();
+
+/**
+ * `isTokenRetryHandled` reports whether `err` is in {@link tokenRetryHandled}.
+ */
+function isTokenRetryHandled(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && tokenRetryHandled.has(err);
+}
+
+/**
+ * `markTokenRetryHandled` records `err` in {@link tokenRetryHandled} and
+ * returns it, for the caller to throw.
+ */
+function markTokenRetryHandled(err: unknown): unknown {
+  if (typeof err === 'object' && err !== null) {
+    tokenRetryHandled.add(err);
   }
-  return state.refreshing;
+  return err;
 }
 
 /**
@@ -1368,9 +1374,6 @@ export class Client {
       // Set when the attach is abandoned because the session went away, so the
       // `catch` below knows the throw is not a connection error.
       let abandoned = false;
-      // The latest attach RPC's token refresh, so the `catch` below does not
-      // handle again what `retryAfterTokenRefresh` already handled.
-      let tokenRetry: TokenRetry = { refreshing: false, resent: false };
       const assertSession = () => {
         if (!ownsSession()) {
           abandoned = true;
@@ -1708,7 +1711,6 @@ export class Client {
           // earlier session, and this attach is the request they ride out on,
           // so it needs the presence-base fallback as much as a sync does.
           assertSession();
-          tokenRetry = { refreshing: false, resent: false };
           const res = await this.retryAfterTokenRefresh(
             () =>
               this.pushWithPresenceBase(
@@ -1731,7 +1733,6 @@ export class Client {
                   ),
               ),
             assertSession,
-            tokenRetry,
           );
 
           assertSession();
@@ -2016,7 +2017,7 @@ export class Client {
         logger.error(`[AD] c:"${this.getKey()}" err :`, err);
         // An abandoned attach is a local lifecycle cancellation, not a
         // server error requiring connection recovery.
-        if (!abandoned && !isHandledByTokenRetry(tokenRetry, err)) {
+        if (!abandoned && !isTokenRetryHandled(err)) {
           await this.handleConnectError(err, false, ownsSession);
         }
         throw err;
@@ -4145,13 +4146,12 @@ export class Client {
    * a session that went away asks for no token and sends nothing; its throw
    * abandons the call. A rejection from the injector is thrown, as
    * `handleConnectError` does for a single call, and so is whatever the
-   * resend throws. `state` records how far it got, for the caller's `catch`
-   * (see {@link isHandledByTokenRetry}).
+   * resend throws; the rejection and a second 401 are marked in
+   * {@link tokenRetryHandled} for the caller's `catch`.
    */
   private async retryAfterTokenRefresh<T>(
     send: () => Promise<T>,
     assertSession: () => void,
-    state: TokenRetry,
   ): Promise<T> {
     try {
       return await send();
@@ -4164,11 +4164,19 @@ export class Client {
       }
 
       assertSession();
-      state.refreshing = true;
-      await this.refreshAuthToken(errorMetadataOf(err).reason, false);
+      try {
+        await this.refreshAuthToken(errorMetadataOf(err).reason, false);
+      } catch (refreshErr) {
+        throw markTokenRetryHandled(refreshErr);
+      }
       assertSession();
-      state.resent = true;
-      return await send();
+      try {
+        return await send();
+      } catch (resendErr) {
+        throw isErrorCode(resendErr, Code.ErrUnauthenticated)
+          ? markTokenRetryHandled(resendErr)
+          : resendErr;
+      }
     }
   }
 

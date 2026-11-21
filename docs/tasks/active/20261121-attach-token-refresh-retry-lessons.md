@@ -30,11 +30,25 @@ reviewer, not the CI lens panel.
 - Round 1 (correctness, tests): 10 findings. Fixed: the first test raced a
   second 500ms expiry; the 401-twice test also passed on main (now asserts
   two `AttachDocument` webhook calls, the second under the refreshed token);
-  an injector rejection that is a `ConnectError` reached `handleConnectError`
-  (now `isHandledByTokenRetry`, pinned by a test); the re-anchor's second
+  an injector rejection that is a `ConnectError` reached `handleConnectError`; the re-anchor's second
   `attachOnce` shared the retry flag (state is per RPC now); the session is
   checked before the refresh; the "stored nothing" claim was false on the
   schema-rebind path (the server writes the doc row and attaching mark
   first; the resend reuses them, comment corrected); task index. Deferred:
   integration tests for a session lost mid-refresh and the store-backed
   path (known limitation in the PR); the other one-shot calls (#1564).
+- Round 2 (design, simplification, blast radius): 8 findings. Fixed: the
+  injector-error integration test threw a plain `Error`, which
+  `handleConnectError` ignores anyway, so it pinned nothing (replaced by unit
+  tests in `auth_refresh_test.ts` with a Yorkie-coded `ConnectError` and a
+  session lost mid-refresh, each shown to fail when its guard is removed);
+  the per-call `TokenRetry` state outlived its RPC and leaked bookkeeping into
+  the caller (replaced by marking the handled errors in a `WeakSet`); the
+  401-twice test read the global `webhookCalls` (now sliced from a baseline);
+  the todo contradicted this log. Deferred: one shared retry layer for every
+  one-shot call (#1564). Disputed: "resend goes out even when the token did
+  not change" (`client.ts`, `retryAfterTokenRefresh`). A lost generation race
+  means a newer token is already set, so the resend uses it, which is the
+  point. An injector that hands back the token the server just refused is an
+  app bug, and the cost is one RPC, bounded. Noted in the PR: apps that still
+  retry attach on 401 themselves now send two requests per attempt.

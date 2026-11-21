@@ -465,6 +465,7 @@ describe('Auth Webhook', () => {
     const doc = new yorkie.Document<{ k1: string }>(
       toDocKey(`${task.name}-${new Date().getTime()}`),
     );
+    const callsBeforeAttach = webhookCalls.length;
     await assertThrowsAsync(
       async () => {
         await client.attach(doc, { syncMode: SyncMode.Manual });
@@ -475,50 +476,13 @@ describe('Auth Webhook', () => {
     expect(authTokenInjector).toBeCalledTimes(2);
     expect(authTokenInjector).nthCalledWith(2, InvalidTokenErrorMessage);
     // The attach was sent again, under the refreshed token.
-    const attaches = webhookCalls.filter(
-      (call) =>
-        call.method === 'AttachDocument' &&
-        call.token.startsWith('invalid-token-'),
-    );
+    const attaches = webhookCalls
+      .slice(callsBeforeAttach)
+      .filter((call) => call.method === 'AttachDocument');
     expect(attaches.map((call) => call.token)).toEqual([
       'invalid-token-1',
       'invalid-token-2',
     ]);
-
-    await client.deactivate();
-  });
-
-  it('should throw the injector error when the token refresh on attach fails', async ({
-    task,
-  }) => {
-    // The injector's rejection is what the app learns from, and it must be
-    // asked once: its error is not a server answer to handle again.
-    const attachOnlyAPIKey = await createWebhookProject(['AttachDocument']);
-    const authTokenInjector = vi.fn(async (reason?: string) => {
-      if (reason) {
-        throw new Error('token api unavailable');
-      }
-      return 'invalid-token';
-    });
-    const client = new yorkie.Client({
-      rpcAddr: testRPCAddr,
-      apiKey: attachOnlyAPIKey,
-      authTokenInjector,
-    });
-    await client.activate();
-
-    const doc = new yorkie.Document<{ k1: string }>(
-      toDocKey(`${task.name}-${new Date().getTime()}`),
-    );
-    await assertThrowsAsync(
-      async () => {
-        await client.attach(doc, { syncMode: SyncMode.Manual });
-      },
-      Error,
-      /token api unavailable/,
-    );
-    expect(authTokenInjector).toBeCalledTimes(2);
-    expect(client.isActive()).toBe(true);
 
     await client.deactivate();
   });

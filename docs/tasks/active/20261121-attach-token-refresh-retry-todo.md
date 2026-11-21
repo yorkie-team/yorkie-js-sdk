@@ -31,7 +31,7 @@ retrying the attach.
    - The session is checked before the refresh and before the resend.
    - A second 401 is thrown without asking the injector again; a rejection
      from the injector is thrown as before and not handled as a server
-     error (`isHandledByTokenRetry`).
+     error (`tokenRetryHandled`).
 2. Update the `authTokenInjector` doc comment.
 
 ## Out of scope
@@ -53,6 +53,6 @@ retrying the attach.
 - [x] `pnpm verify:fast` steps (lint with `.claude/**` excluded: stray
       worktrees there fail prettier) and the full `pnpm sdk test`: 146 files,
       3963 passed.
-- [x] Self review: one inline round, no blocking findings (see lessons).
+- [x] Self review with `/code-review` (high), rounds logged in lessons.
 - [x] File the out-of-scope issue (#1564).
 - [ ] Open the PR.
