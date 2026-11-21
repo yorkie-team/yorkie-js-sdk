@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Tasks Archive
@@ -8,12 +8,13 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 76
+Total archived tasks: 77
 
-## 2026/11 (12 tasks)
+## 2026/11 (13 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Retry attach once after refreshing an expired auth token (2026-11-21) | [20261121-attach-token-refresh-retry-todo.md](./2026/11/20261121-attach-token-refresh-retry-todo.md) | [20261121-attach-token-refresh-retry-lessons.md](./2026/11/20261121-attach-token-refresh-retry-lessons.md) |
 | Read a presence value that is not JSON as its raw text (2026-11-19) | [20261119-tolerate-raw-presence-values-todo.md](./2026/11/20261119-tolerate-raw-presence-values-todo.md) | [20261119-tolerate-raw-presence-values-lessons.md](./2026/11/20261119-tolerate-raw-presence-values-lessons.md) |
 | React Chat Example Implementation Plan (2026-11-18) | [20261118-react-chat-example-todo.md](./2026/11/20261118-react-chat-example-todo.md) | [20261118-react-chat-example-lessons.md](./2026/11/20261118-react-chat-example-lessons.md) |
 | Drop the unused activeTab permission from the devtools manifest (2026-11-18) | [20261118-devtools-activetab-todo.md](./2026/11/20261118-devtools-activetab-todo.md) | [20261118-devtools-activetab-lessons.md](./2026/11/20261118-devtools-activetab-lessons.md) |
