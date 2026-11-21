@@ -20,6 +20,7 @@ import yorkie, {
   SyncMode,
   DocSyncStatus,
   DocEventType,
+  DocStatus,
   Channel,
 } from '@yorkie-js/sdk/src/yorkie';
 import {
@@ -361,18 +362,11 @@ describe('Auth Webhook', () => {
       toDocKey(`${task.name}-${new Date().getTime()}`),
     );
 
+    // attach retries on its own once the token is refreshed.
     await new Promise((res) => setTimeout(res, TokenExpirationMs));
-    await assertThrowsAsync(
-      async () => {
-        await client.attach(doc, { syncMode: SyncMode.Manual });
-      },
-      ConnectError,
-      /^\[unauthenticated\]/i,
-    );
+    await client.attach(doc, { syncMode: SyncMode.Manual });
     expect(authTokenInjector).toBeCalledTimes(4);
     expect(authTokenInjector).nthCalledWith(4, ExpiredTokenErrorMessage);
-    // retry attach
-    await client.attach(doc, { syncMode: SyncMode.Manual });
 
     doc.update((root) => {
       root.k1 = 'v1';
@@ -415,6 +409,67 @@ describe('Auth Webhook', () => {
     expect(authTokenInjector).toBeCalledTimes(7);
     expect(authTokenInjector).nthCalledWith(7, ExpiredTokenErrorMessage);
     // retry deactivate
+    await client.deactivate();
+  });
+
+  it('should refresh token and retry attach once the token has expired', async ({
+    task,
+  }) => {
+    // A long-lived client whose token aged past its lifetime while nothing
+    // else asked the server for anything: the attach is the first request to
+    // meet the expiry, and nothing after it retries on the app's behalf.
+    const authTokenInjector = vi.fn(async () => {
+      return `token-${Date.now() + ShortTokenLifetimeMs}`;
+    });
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector,
+    });
+    await client.activate();
+    expect(authTokenInjector).toBeCalledTimes(1);
+
+    await new Promise((res) => setTimeout(res, ShortTokenLifetimeMs));
+    const doc = new yorkie.Document<{ k1: string }>(
+      toDocKey(`${task.name}-${new Date().getTime()}`),
+    );
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    expect(authTokenInjector).toBeCalledTimes(2);
+    expect(authTokenInjector).nthCalledWith(2, ExpiredTokenErrorMessage);
+    expect(doc.getStatus()).toBe(DocStatus.Attached);
+
+    await client.detach(doc);
+    await client.deactivate();
+  });
+
+  it('should throw the second unauthenticated error when the refreshed token is refused too', async ({
+    task,
+  }) => {
+    // Every token is refused, so the retry fails as well: the attach must
+    // surface that error after asking for exactly one new token, not loop.
+    // Only `AttachDocument` is guarded, so activate and deactivate pass.
+    const attachOnlyAPIKey = await createWebhookProject(['AttachDocument']);
+    const authTokenInjector = vi.fn(async () => 'invalid-token');
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey: attachOnlyAPIKey,
+      authTokenInjector,
+    });
+    await client.activate();
+
+    const doc = new yorkie.Document<{ k1: string }>(
+      toDocKey(`${task.name}-${new Date().getTime()}`),
+    );
+    await assertThrowsAsync(
+      async () => {
+        await client.attach(doc, { syncMode: SyncMode.Manual });
+      },
+      ConnectError,
+      /^\[unauthenticated\]/i,
+    );
+    expect(authTokenInjector).toBeCalledTimes(2);
+    expect(authTokenInjector).nthCalledWith(2, InvalidTokenErrorMessage);
+
     await client.deactivate();
   });
 

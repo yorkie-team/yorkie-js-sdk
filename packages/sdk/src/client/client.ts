@@ -272,10 +272,12 @@ export interface ClientOptions {
    * doubling up to 30s, jittered. A loop that got a 401 retries on its own
    * after its usual delay, or once that time is up if it is later, but
    * waits at most 5s for it, so the loops come back once the token API
-   * does. A one-shot call such as `attach`, `detach`, `remove` or `sync`
-   * calls the function on every 401, as before: it throws the function's
-   * error if the function rejects, and the `ErrUnauthenticated` it received
-   * otherwise; retrying it is up to the caller. The first try of `broadcast`
+   * does. A one-shot call such as `detach`, `remove` or `sync` calls the
+   * function on every 401, as before: it throws the function's error if the
+   * function rejects, and the `ErrUnauthenticated` it received otherwise;
+   * retrying it is up to the caller. `attach` does the same, except that once
+   * the function resolves it resends the attach under the new token, once,
+   * and throws only if that is refused too. The first try of `broadcast`
    * calls it the same way and throws the function's error if it rejects;
    * otherwise `broadcast` retries as usual.
    *
@@ -1344,6 +1346,10 @@ export class Client {
       // Set when the attach is abandoned because the session went away, so the
       // `catch` below knows the throw is not a connection error.
       let abandoned = false;
+      // Set once the attach RPC has already been answered with a 401 and
+      // retried under a new token, so the `catch` below does not ask
+      // `authTokenInjector` a second time for the retry's own 401.
+      let tokenRefreshed = false;
       const assertSession = () => {
         if (!ownsSession()) {
           abandoned = true;
@@ -1681,24 +1687,31 @@ export class Client {
           // earlier session, and this attach is the request they ride out on,
           // so it needs the presence-base fallback as much as a sync does.
           assertSession();
-          const res = await this.pushWithPresenceBase(
-            doc,
-            () => converter.toChangePack(doc.createChangePack()),
-            (changePack) =>
-              this.rpcClient.attachDocument(
-                {
-                  clientId: this.id!,
-                  changePack,
-                  schemaKey: opts.schema,
-                  disableGc: opts.disableGC ?? false,
-                  disablePresence: resolvedDisablePresence,
-                },
-                {
-                  headers: {
-                    'x-shard-key': `${this.apiKey}/${doc.getKey()}`,
-                  },
-                },
+          const res = await this.retryAfterTokenRefresh(
+            () =>
+              this.pushWithPresenceBase(
+                doc,
+                () => converter.toChangePack(doc.createChangePack()),
+                (changePack) =>
+                  this.rpcClient.attachDocument(
+                    {
+                      clientId: this.id!,
+                      changePack,
+                      schemaKey: opts.schema,
+                      disableGc: opts.disableGC ?? false,
+                      disablePresence: resolvedDisablePresence,
+                    },
+                    {
+                      headers: {
+                        'x-shard-key': `${this.apiKey}/${doc.getKey()}`,
+                      },
+                    },
+                  ),
               ),
+            () => {
+              assertSession();
+              tokenRefreshed = true;
+            },
           );
 
           assertSession();
@@ -1983,7 +1996,10 @@ export class Client {
         logger.error(`[AD] c:"${this.getKey()}" err :`, err);
         // An abandoned attach is a local lifecycle cancellation, not a
         // server error requiring connection recovery.
-        if (!abandoned) {
+        if (
+          !abandoned &&
+          !(tokenRefreshed && isErrorCode(err, Code.ErrUnauthenticated))
+        ) {
           await this.handleConnectError(err, false, ownsSession);
         }
         throw err;
@@ -4089,6 +4105,43 @@ export class Client {
     // Unconditional: this attachment is torn down whether or not the key
     // still points at it, so teardown must stop seeing it either way.
     this.liveAttachments.delete(attachment);
+  }
+
+  /**
+   * `retryAfterTokenRefresh` runs `send` and answers `ErrUnauthenticated` by
+   * asking `authTokenInjector` for a new token and running it once more.
+   *
+   * The token goes stale on a long-lived client: it is only replaced when a
+   * request is refused, and an idle client, or one whose device slept, sends
+   * none. The loops recover from that on their own, but an attach is a single
+   * call, and rethrowing the 401 after the refresh left the app to retry an
+   * attach it already holds a good token for. Apps did not: a document stayed
+   * unopened until a reload.
+   *
+   * Resending is safe because the auth webhook is consulted before the server
+   * touches the document, so a refused request stored nothing. A rejection
+   * from the injector is thrown, as `handleConnectError` does for a single
+   * call, and so is the retry's own error. `beforeRetry` runs between the
+   * refresh and the retry; a throw there abandons the retry.
+   */
+  private async retryAfterTokenRefresh<T>(
+    send: () => Promise<T>,
+    beforeRetry: () => void,
+  ): Promise<T> {
+    try {
+      return await send();
+    } catch (err) {
+      if (
+        !this.authTokenInjector ||
+        !isErrorCode(err, Code.ErrUnauthenticated)
+      ) {
+        throw err;
+      }
+
+      await this.refreshAuthToken(errorMetadataOf(err).reason, false);
+      beforeRetry();
+      return await send();
+    }
   }
 
   /**
