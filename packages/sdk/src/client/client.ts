@@ -275,9 +275,11 @@ export interface ClientOptions {
    * does. A one-shot call such as `detach`, `remove` or `sync` calls the
    * function on every 401, as before: it throws the function's error if the
    * function rejects, and the `ErrUnauthenticated` it received otherwise;
-   * retrying it is up to the caller. `attach` does the same, except that once
-   * the function resolves it resends the attach request under the new token,
-   * once, and throws whatever that resend throws. The first try of `broadcast`
+   * retrying it is up to the caller. `attach` calls the function on its
+   * first 401 the same way, but once the function resolves it resends the
+   * attach request under the new token, once, and throws whatever that resend
+   * throws; a 401 on the resend does not call the function again. The first
+   * try of `broadcast`
    * calls it the same way and throws the function's error if it rejects;
    * otherwise `broadcast` retries as usual.
    *

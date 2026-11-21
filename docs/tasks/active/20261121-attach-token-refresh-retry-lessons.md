@@ -1,5 +1,7 @@
 # Lessons: retry attach once after refreshing an expired auth token
 
+**Created**: 2026-11-21
+
 ## The 401 was handled; the retry was not
 
 The SDK already refreshed the token on an attach 401. The contract was that a
@@ -19,8 +21,9 @@ document.
 ## Count injector calls on the failure path
 
 Without a guard, a second 401 reaches the attach `catch`, whose
-`handleConnectError` asks the injector again. That is three calls per attach
-for a revoked user. The second test pins two.
+`handleConnectError` asks the injector again: two calls per attach for a
+revoked user instead of one. The 401-twice test pins one (two in total,
+counting the activate).
 
 ## Self review
 
@@ -35,8 +38,8 @@ reviewer, not the CI lens panel.
   checked before the refresh; the "stored nothing" claim was false on the
   schema-rebind path (the server writes the doc row and attaching mark
   first; the resend reuses them, comment corrected); task index. Deferred:
-  integration tests for a session lost mid-refresh and the store-backed
-  path (known limitation in the PR); the other one-shot calls (#1564).
+  a test of the store-backed path (todo, Out of scope); the other one-shot
+  calls (#1564). The session lost mid-refresh got a unit test in round 2.
 - Round 2 (design, simplification, blast radius): 8 findings. Fixed: the
   injector-error integration test threw a plain `Error`, which
   `handleConnectError` ignores anyway, so it pinned nothing (replaced by unit
@@ -47,8 +50,16 @@ reviewer, not the CI lens panel.
   401-twice test read the global `webhookCalls` (now sliced from a baseline);
   the todo contradicted this log. Deferred: one shared retry layer for every
   one-shot call (#1564). Disputed: "resend goes out even when the token did
-  not change" (`client.ts`, `retryAfterTokenRefresh`). A lost generation race
+  not change" (`client.ts`, the resend in `retryAfterTokenRefresh`, ~line
+  4180). A lost generation race
   means a newer token is already set, so the resend uses it, which is the
   point. An injector that hands back the token the server just refused is an
   app bug, and the cost is one RPC, bounded. Noted in the PR: apps that still
   retry attach on 401 themselves now send two requests per attempt.
+- Round 3 (security, docs): no blocking findings; the loop ends here.
+  Fixed the doc mismatches it listed (the `authTokenInjector` comment on the
+  resend's 401, the call counts above, this file's `**Created**` line, the
+  store-path gap moved to the todo) and folded the duplicated error fixture
+  in `auth_refresh_test.ts`. Deferred to #1564: the module-level
+  `tokenRetryHandled` set is a per-caller rule each new adopter must follow;
+  a shared retry layer removes it.

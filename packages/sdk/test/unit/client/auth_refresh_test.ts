@@ -28,17 +28,33 @@ import { runWatchStream } from '@yorkie-js/sdk/src/client/watch';
 const ExpiredToken = 'expired token';
 
 /**
- * `unauthenticated` builds the 401 the server returns when the auth webhook
- * refuses the token, with the Yorkie code and the webhook's reason in the
- * error detail metadata where `errorMetadataOf` reads them.
+ * `yorkieError` builds a server-style error carrying the given Yorkie code,
+ * and the reason if any, in the error detail metadata where
+ * `errorMetadataOf` reads them.
  */
-function unauthenticated(): ConnectError {
+function yorkieError(
+  code: string,
+  connectCode: ConnectCode,
+  reason?: string,
+): ConnectError {
   const info = create(ErrorInfoSchema, {
-    metadata: { code: Code.ErrUnauthenticated, reason: ExpiredToken },
+    metadata: reason ? { code, reason } : { code },
   });
-  return new ConnectError('unauthenticated', ConnectCode.Unauthenticated, {}, [
+  return new ConnectError(code, connectCode, {}, [
     { desc: ErrorInfoSchema, value: info },
   ]);
+}
+
+/**
+ * `unauthenticated` builds the 401 the server returns when the auth webhook
+ * refuses the token.
+ */
+function unauthenticated(): ConnectError {
+  return yorkieError(
+    Code.ErrUnauthenticated,
+    ConnectCode.Unauthenticated,
+    ExpiredToken,
+  );
 }
 
 /**
@@ -514,16 +530,6 @@ describe('Token refresh after a 401', () => {
     expect(injector).toHaveBeenCalledTimes(2);
   });
 });
-
-/**
- * `yorkieError` builds a server-style error carrying the given Yorkie code.
- */
-function yorkieError(code: string, connectCode: ConnectCode): ConnectError {
-  const info = create(ErrorInfoSchema, { metadata: { code } });
-  return new ConnectError(code, connectCode, {}, [
-    { desc: ErrorInfoSchema, value: info },
-  ]);
-}
 
 /**
  * `activatedClient` returns a client forced into the active state, with the

@@ -39,7 +39,11 @@ retrying the attach.
 - `detach`, `remove`, manual `sync` and `deactivate` keep rethrowing the 401
   after the refresh. They share the stale-token cause but not the symptom:
   the app already awaits and handles their errors, and the React provider
-  swallows detach failures. Tracked as #1564.
+  swallows detach failures. Tracked as #1564, together with moving the retry
+  into one shared layer so callers stop consulting `tokenRetryHandled`.
+- A test of the store-backed attach retry (restore and presence seeding run
+  once, the RPC twice). The resend wraps only the RPC inside `attachOnce`, so
+  the restore cannot re-run; no test pins it. Added to #1564.
 
 ## Steps
 
@@ -48,11 +52,12 @@ retrying the attach.
 - [x] Fix in `client.ts`; the existing manual-sync test no longer expects
       attach to throw.
 - [x] `should throw the second unauthenticated error when the refreshed token
-      is refused too` pins one injector call per attach.
+      is refused too` pins one injector call per attach and asserts the resend.
 - [x] `webhook_test.ts` green 3 runs in a row against a local server.
 - [x] `pnpm verify:fast` steps (lint with `.claude/**` excluded: stray
       worktrees there fail prettier) and the full `pnpm sdk test`: 146 files,
       3963 passed.
-- [x] Self review with `/code-review` (high), rounds logged in lessons.
+- [x] Self review with `/code-review` (high): 3 rounds, the last clean;
+      logged in lessons.
 - [x] File the out-of-scope issue (#1564).
 - [ ] Open the PR.
