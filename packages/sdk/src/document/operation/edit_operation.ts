@@ -19,6 +19,7 @@ import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import {
   InitialRGATreeSplitNodeID,
+  InsertOrigin,
   RGATreeSplitPos,
   RestoreSpan,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
@@ -62,6 +63,10 @@ export class EditOperation extends Operation {
   // copy-reinserting the deleted text as a fresh node — keeps a later revived
   // neighbour in its original relative order.
   private retombstoneSpans?: Array<RestoreSpan<CRDTTextValue>>;
+  // `origin` is the insertion origin of `content`, recorded by the local
+  // edit. Its left is always `fromPos`. Undo ops and ops from old clients
+  // carry none and keep the legacy placement rule.
+  private origin?: InsertOrigin;
 
   constructor(
     parentCreatedAt: TimeTicket,
@@ -74,6 +79,7 @@ export class EditOperation extends Operation {
     restoreSpans?: Array<RestoreSpan<CRDTTextValue>>,
     restoreMode?: RestoreMode,
     retombstoneSpans?: Array<RestoreSpan<CRDTTextValue>>,
+    origin?: InsertOrigin,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
@@ -84,6 +90,7 @@ export class EditOperation extends Operation {
     this.restoreSpans = restoreSpans;
     this.restoreMode = restoreMode;
     this.retombstoneSpans = retombstoneSpans;
+    this.origin = origin;
   }
 
   /**
@@ -100,6 +107,7 @@ export class EditOperation extends Operation {
     restoreSpans?: Array<RestoreSpan<CRDTTextValue>>,
     restoreMode?: RestoreMode,
     retombstoneSpans?: Array<RestoreSpan<CRDTTextValue>>,
+    origin?: InsertOrigin,
   ): EditOperation {
     return new EditOperation(
       parentCreatedAt,
@@ -112,6 +120,7 @@ export class EditOperation extends Operation {
       restoreSpans,
       restoreMode,
       retombstoneSpans,
+      origin,
     );
   }
 
@@ -272,6 +281,7 @@ export class EditOperation extends Operation {
       this.getExecutedAt(),
       Object.fromEntries(this.attributes),
       versionVector,
+      this.isUndoOp ? undefined : this.origin,
     );
 
     const reverseOp = this.toReverseOperation(
@@ -568,6 +578,13 @@ export class EditOperation extends Operation {
     const toPos = this.toPos.toTestString();
     const content = this.content;
     return `${parent}.EDIT(${fromPos},${toPos},${content})`;
+  }
+
+  /**
+   * `getOrigin` returns the insertion origin of the content, if any.
+   */
+  public getOrigin(): InsertOrigin | undefined {
+    return this.origin;
   }
 
   /**

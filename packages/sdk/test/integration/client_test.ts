@@ -659,8 +659,13 @@ describe.sequential('Client', function () {
     });
     await eventCollectorD1.waitAndVerifyNthEvent(3, DocEventType.RemoteChange);
 
-    assert.equal(d1.getRoot().tree.toXML(), '<doc><p>1ba2</p><p>34</p></doc>');
-    assert.equal(d2.getRoot().tree.toXML(), '<doc><p>1ba2</p><p>34</p></doc>');
+    // Whether d2 had pulled `a` before typing `b` depends on the unawaited
+    // sync above, so either order is right; the replicas have to agree.
+    assert.include(
+      ['<doc><p>1ab2</p><p>34</p></doc>', '<doc><p>1ba2</p><p>34</p></doc>'],
+      d1.getRoot().tree.toXML(),
+    );
+    assert.equal(d2.getRoot().tree.toXML(), d1.getRoot().tree.toXML());
 
     unsub1();
     unsub2();
@@ -736,8 +741,13 @@ describe.sequential('Client', function () {
     });
     await eventCollectorD1.waitAndVerifyNthEvent(3, DocEventType.RemoteChange);
 
-    assert.equal(d1.getRoot().tree.toXML(), '<doc><p>1ba2</p><p>34</p></doc>');
-    assert.equal(d2.getRoot().tree.toXML(), '<doc><p>1ba2</p><p>34</p></doc>');
+    // Whether d2 had pulled `a` before typing `b` depends on the unawaited
+    // sync above, so either order is right; the replicas have to agree.
+    assert.include(
+      ['<doc><p>1ab2</p><p>34</p></doc>', '<doc><p>1ba2</p><p>34</p></doc>'],
+      d1.getRoot().tree.toXML(),
+    );
+    assert.equal(d2.getRoot().tree.toXML(), d1.getRoot().tree.toXML());
 
     unsub1();
     unsub2();

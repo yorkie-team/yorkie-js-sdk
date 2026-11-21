@@ -66,6 +66,12 @@ export interface RGATreeSplitValue {
    * a value that has any (`CRDTTextValue`'s removed attributes).
    */
   getGCPairs?(): Array<GCPair>;
+
+  /**
+   * `skeletonValue` returns an empty value with no attributes, which a
+   * collected tombstone (a skeleton) keeps in place of its content.
+   */
+  skeletonValue?(): RGATreeSplitValue;
 }
 
 /**
@@ -189,6 +195,25 @@ export const InitialRGATreeSplitNodeID = RGATreeSplitNodeID.of(
   InitialTimeTicket,
   0,
 );
+
+/**
+ * `InsertOrigin` is the insertion context recorded when a node is inserted.
+ *
+ * `left` is the boundary the content was inserted after (the edit's `from`
+ * as an absolute ID). `right` is the ID of the character that sat right after
+ * the caret at insertion time, tombstones included, or `undefined` at the end
+ * of the text. With only `left`, every node inserted at the same boundary is a
+ * sibling ordered by timestamp, so two runs typed with the caret held in place
+ * interleave. `right` records "this went before that", which keeps each run
+ * contiguous (the FugueMax/YjsMod rule).
+ *
+ * A node without an origin (old operations, undo restores, old snapshots)
+ * keeps the legacy placement rule. The IDs are shared, never mutated.
+ */
+export type InsertOrigin = {
+  left: RGATreeSplitNodeID;
+  right?: RGATreeSplitNodeID;
+};
 
 /**
  * `RGATreeSplitPos` is the position of the text inside the node.
@@ -344,6 +369,14 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   private next?: RGATreeSplitNode<T>;
   private insPrev?: RGATreeSplitNode<T>;
   private insNext?: RGATreeSplitNode<T>;
+  private origin?: InsertOrigin;
+  // `skelLen > 0` marks a skeleton: a tombstone whose garbage collection has
+  // run. Instead of being unlinked, the node drops its content and attributes
+  // and keeps what placement reads -- its ID range [offset, offset+skelLen),
+  // its origin and its place in the chain -- so insertion origins that name
+  // it, and the windows `integrate` scans, resolve the same on replicas that
+  // collected it and on replicas that did not (the Yjs GC-struct approach).
+  private skelLen = 0;
 
   constructor(id: RGATreeSplitNodeID, value?: T, removedAt?: TimeTicket) {
     super(value!);
@@ -408,7 +441,74 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * `getContentLength` returns the length of this value.
    */
   public getContentLength(): number {
+    if (this.skelLen > 0) {
+      return this.skelLen;
+    }
     return (this.value && this.value.length) || 0;
+  }
+
+  /**
+   * `isSkeleton` tells whether this node is a collected tombstone kept only
+   * for its position.
+   */
+  public isSkeleton(): boolean {
+    return this.skelLen > 0;
+  }
+
+  /**
+   * `getSkeletonLength` returns the length of the ID range a skeleton
+   * covers, or 0.
+   */
+  public getSkeletonLength(): number {
+    return this.skelLen;
+  }
+
+  /**
+   * `toSkeleton` turns this node into a skeleton covering `length`
+   * positions, with the given empty value. Every skeleton shares one
+   * stand-in removal time: nothing reads it (removal, style, restore and GC
+   * all branch on the skeleton first), so a snapshot needs no removed_at for
+   * it and a replica that loads one holds the state of the one that
+   * collected it. The removal ledger goes with it.
+   */
+  public toSkeleton(length: number, value: T): void {
+    this.skelLen = length;
+    this.value = value;
+    this.setRemovedAt(InitialTimeTicket);
+  }
+
+  /**
+   * `refill` turns a skeleton back into a node with the given content, in
+   * place (undo of a collected deletion). It is left live; the caller
+   * records the removal ledger it needs.
+   */
+  public refill(value: T): void {
+    this.skelLen = 0;
+    this.value = value;
+    this.setRemovedAt(undefined);
+  }
+
+  /**
+   * `growSkeleton` extends a skeleton by the range of the next piece of the
+   * same insertion, which it absorbs.
+   */
+  public growSkeleton(length: number): void {
+    this.skelLen += length;
+  }
+
+  /**
+   * `getOrigin` returns the insertion origin of this node, if any.
+   */
+  public getOrigin(): InsertOrigin | undefined {
+    return this.origin;
+  }
+
+  /**
+   * `setOrigin` sets the insertion origin. It is only called on a node that
+   * was just created (local or remote insert, snapshot decoding).
+   */
+  public setOrigin(origin?: InsertOrigin): void {
+    this.origin = origin;
   }
 
   /**
@@ -518,12 +618,34 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * `split` creates a new split node of the given offset.
    */
   public split(offset: number): RGATreeSplitNode<T> {
+    if (this.skelLen > 0) {
+      // Skeleton values are empty and never mutated, so both halves share
+      // one, and there is no ledger to copy.
+      const node = new RGATreeSplitNode(
+        this.id.split(offset),
+        this.value,
+        this.removedAt,
+      );
+      node.skelLen = this.skelLen - offset;
+      this.skelLen = offset;
+      if (this.origin) {
+        node.origin = { left: node.id, right: this.origin.right };
+      }
+      return node;
+    }
     const node = new RGATreeSplitNode(
       this.id.split(offset),
       this.splitValue(offset),
       this.removedAt,
     );
     node.copyLedger(this);
+    // NOTE: The back piece is part of the same insertion, so it keeps the
+    // right origin. Its left origin is its own ID, which
+    // `findFloorNodePreferToLeft` resolves to the front piece through
+    // `insPrev`: the back piece hangs off the last character before it.
+    if (this.origin) {
+      node.origin = { left: node.id, right: this.origin.right };
+    }
     return node;
   }
 
@@ -762,6 +884,11 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * given version vector: a deletion it knew that no undo it knew cancelled.
    */
   public isRemovedInView(vector: VersionVector): boolean {
+    // A skeleton's removal was stable everywhere when it was collected; its
+    // stand-in removal time is in no vector, so it is answered here.
+    if (this.skelLen > 0) {
+      return true;
+    }
     for (const { removal, cancelledAt } of this.ledgerIndex().entries) {
       if (!ticketKnown(vector, removal)) {
         continue;
@@ -873,6 +1000,15 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
       return false;
     }
 
+    // A skeleton's removal was causally stable when it was collected, so no
+    // later deletion can be one it has not seen. Its stand-in removal time is
+    // not in any vector, so without this a remote deletion would read it as
+    // live and record a removal on it. This matches a purged node, which a
+    // deletion over it no longer finds.
+    if (this.skelLen > 0) {
+      return false;
+    }
+
     if (!this.removedAt) {
       return true;
     }
@@ -910,6 +1046,10 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * agreeing.
    */
   public canStyle(versionVector?: VersionVector): boolean {
+    if (this.skelLen > 0) {
+      // Collected: there is no value to style, as a purged node had none.
+      return false;
+    }
     return ticketKnown(versionVector, this.getCreatedAt());
   }
 
@@ -966,6 +1106,8 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
       this.removedAt,
     );
     node.copyLedger(this);
+    node.origin = this.origin;
+    node.skelLen = this.skelLen;
     return node;
   }
 
@@ -974,6 +1116,9 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * the meta data of the node for debugging purpose.
    */
   public toTestString(): string {
+    if (this.skelLen > 0) {
+      return `${this.id.toTestString()} skel(${this.skelLen})`;
+    }
     return `${this.id.toTestString()} ${this.value ? this.value : ''}`;
   }
 
@@ -1016,6 +1161,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * `restore`) drain this buffer into their returned GC pairs.
    */
   private pendingGCPairs: Array<GCPair>;
+  // The empty value every skeleton shares. Built lazily.
+  private skelValue?: T;
 
   /**
    * `cancelled` holds the nodes whose ledger has a cancel, the only ones
@@ -1105,6 +1252,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     editedAt: TimeTicket,
     value?: T,
     versionVector?: VersionVector,
+    origin?: InsertOrigin,
   ): [
     RGATreeSplitPos,
     Array<GCPair>,
@@ -1140,12 +1288,31 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
 
     // 03. insert a new node
     if (value) {
-      const idx = this.posToIndex(fromLeft.createPosRange()[1], true);
+      // NOTE: Without an origin the node goes after `fromLeft` (legacy RGA
+      // rule). With one, it goes after `fromLeft` when nothing sits between
+      // its left and right origins (every local insert, and every remote
+      // insert without a concurrent one at the same spot), and otherwise
+      // where `integrate` places it.
+      let prevNode = fromLeft;
+      if (origin && !this.isUncontested(fromLeft, fromRight, origin)) {
+        const [dest, diffIntegrate] = this.integrate(
+          origin,
+          editedAt.getActorID(),
+        );
+        addDataSizes(diff, diffIntegrate);
+        if (dest) {
+          prevNode = dest;
+        }
+      }
 
-      const inserted = this.insertAfter(
-        fromLeft,
-        RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value),
+      const idx = this.posToIndex(prevNode.createPosRange()[1], true);
+
+      const newNode = RGATreeSplitNode.create(
+        RGATreeSplitNodeID.of(editedAt, 0),
+        value,
       );
+      newNode.setOrigin(origin);
+      const inserted = this.insertAfter(prevNode, newNode);
       addDataSizes(diff, inserted.getDataSize());
 
       if (changes.length && changes[changes.length - 1].from === idx) {
@@ -1262,7 +1429,27 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         if (piece && pieceStart <= cursor) {
           // Covered by an existing piece.
           const overlapEnd = Math.min(pieceEnd, span.end);
-          if (piece.isRemoved()) {
+          if (piece.isSkeleton()) {
+            // A collected tombstone: its content is gone, as a purged node's
+            // was. Refill it from the span in its original slot, with the
+            // stand-in removal and cancel a recreated piece gets (see the gap
+            // case below for why).
+            const [target] = this.isolateRange(piece, cursor, overlapEnd);
+            const value = span.value.substring(
+              cursor - span.start,
+              overlapEnd - span.start,
+            ) as T;
+            target.refill(value);
+            const stable = TimeTicket.of(0n, 0, executedAt.getActorID());
+            target.recordRemoval(stable);
+            target.cancelRemoval(stable, executedAt);
+            this.trackCancelled(target);
+            this.bookCopiedAttrTombstones(value);
+            addDataSizes(liveDiff, target.getDataSize());
+            this.treeByIndex.splayNode(target);
+            recreated.push(target);
+            chainAnchor = target;
+          } else if (piece.isRemoved()) {
             const [target] = this.isolateRange(piece, cursor, overlapEnd);
             // An undo reverses its own actor's change, so the removal it
             // cancels is the one uncancelled removal by that actor: one actor
@@ -1426,6 +1613,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         span.end,
       );
       for (const piece of pieces) {
+        if (piece.isSkeleton()) {
+          // Collected, as a purged piece was absent: nothing to re-delete.
+          continue;
+        }
         if (piece.isRemoved()) {
           // A piece live in the redo's view but removed here by a deletion
           // the redo never saw still records the redo's deletion, so a later
@@ -1523,6 +1714,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       );
       let cursor = span.start;
       for (const piece of pieces) {
+        if (piece.isSkeleton()) {
+          // No content left: the snapshot fills it, as it did a purged gap.
+          continue;
+        }
         const pieceStart = piece.getID().getOffset();
         const start = Math.max(pieceStart, cursor);
         const end = Math.min(pieceStart + piece.getContentLength(), span.end);
@@ -1949,6 +2144,171 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   }
 
   /**
+   * `rightOriginOf` returns the right origin for an insert at the given
+   * boundary: the ID of the character right after it, tombstones included,
+   * or `undefined` at the end of the text. It must be the immediate next
+   * character. Skipping a tombstone would put a node the author already knew
+   * inside the window `integrate` scans, and replicas would diverge.
+   */
+  public rightOriginOf(
+    left: RGATreeSplitNodeID,
+  ): RGATreeSplitNodeID | undefined {
+    const node = this.findFloorNodePreferToLeft(left);
+    const rel = left.getOffset() - node.getID().getOffset();
+    if (rel > 0 && rel < node.getContentLength()) {
+      return RGATreeSplitNodeID.of(node.getCreatedAt(), left.getOffset());
+    }
+    return node.getNext()?.getID();
+  }
+
+  /**
+   * `isUncontested` reports whether the node the legacy rule found ends
+   * exactly at the left origin and is followed by the right origin. Then
+   * nothing sits between the origins, `integrate` would return `left` too,
+   * and the tree lookups can be skipped. It only compares fields.
+   */
+  private isUncontested(
+    left: RGATreeSplitNode<T>,
+    right: RGATreeSplitNode<T> | undefined,
+    origin: InsertOrigin,
+  ): boolean {
+    const leftID = left.getID();
+    if (
+      !leftID.hasSameCreatedAt(origin.left) ||
+      leftID.getOffset() + left.getContentLength() !== origin.left.getOffset()
+    ) {
+      return false;
+    }
+    if (!right || !origin.right) {
+      return !right && !origin.right;
+    }
+    return right.getID().equals(origin.right);
+  }
+
+  /**
+   * `findOriginRight` returns the node starting at the given right origin,
+   * splitting the node that holds it if needed. It returns `undefined` when
+   * the character is no longer in the chain (purged by GC).
+   */
+  private findOriginRight(
+    id: RGATreeSplitNodeID,
+    diff?: DataSize,
+  ): RGATreeSplitNode<T> | undefined {
+    const node = this.findFloorNode(id);
+    if (!node) {
+      return;
+    }
+    const rel = id.getOffset() - node.getID().getOffset();
+    if (rel === 0) {
+      return node;
+    }
+    if (!diff || rel < 0 || rel >= node.getContentLength()) {
+      return;
+    }
+    const [split, splitDiff] = this.splitNode(node, rel);
+    addDataSizes(diff, splitDiff);
+    return split;
+  }
+
+  /**
+   * `integrate` finds the node a new node with the given origin goes after,
+   * when other nodes sit between its origins (FugueMax/YjsMod). Only the
+   * nodes between `left` and `right` can be concurrent with the new node, so
+   * only they are scanned:
+   *  - a sibling (same left origin) whose right origin is before ours may
+   *    still precede us, so keep scanning without moving the destination;
+   *  - a sibling with the same right origin is a true tie, broken by actor;
+   *  - a sibling whose right origin is after ours precedes us;
+   *  - a node hanging off a node already scanned moves with its parent, so a
+   *    run typed by one user is never split by another;
+   *  - a node hanging off something before `left` ends the scan.
+   *
+   * It returns `undefined` when the right origin was purged by GC; the caller
+   * then falls back to the legacy placement.
+   */
+  private integrate(
+    origin: InsertOrigin,
+    actor: ActorID,
+  ): [RGATreeSplitNode<T> | undefined, DataSize] {
+    const diff = { data: 0, meta: 0 };
+    const left = this.findFloorNodePreferToLeft(origin.left);
+    let right: RGATreeSplitNode<T> | undefined;
+    if (origin.right) {
+      right = this.findOriginRight(origin.right, diff);
+      if (!right) {
+        return [undefined, diff];
+      }
+    }
+    if (left.getNext() === right) {
+      return [left, diff];
+    }
+
+    // Rank every node in the window so right origins can be compared.
+    const rank = new Map<RGATreeSplitNode<T>, number>();
+    let n = left.getNext();
+    while (n && n !== right) {
+      rank.set(n, rank.size);
+      n = n.getNext();
+    }
+    const rightRank = rank.size;
+    const rankOf = (id?: RGATreeSplitNodeID): number => {
+      if (!id) {
+        return right ? Infinity : rightRank;
+      }
+      const node = this.findOriginRight(id);
+      if (!node) {
+        return Infinity;
+      }
+      if (node === right) {
+        return rightRank;
+      }
+      return rank.get(node) ?? Infinity;
+    };
+
+    const scanned = new Set<RGATreeSplitNode<T>>();
+    let dest = left;
+    let prev = left;
+    let scanning = false;
+    for (let o = left.getNext(); ; o = o.getNext()) {
+      if (!scanning) {
+        dest = prev;
+      }
+      if (!o || o === right) {
+        break;
+      }
+      prev = o;
+
+      const oOrigin = o.getOrigin();
+      if (!oOrigin) {
+        break;
+      }
+      const oLeft = this.findFloorNode(oOrigin.left)
+        ? this.findFloorNodePreferToLeft(oOrigin.left)
+        : undefined;
+      if (oLeft === left) {
+        const cmp = rankOf(oOrigin.right) - rightRank;
+        if (cmp < 0) {
+          scanning = true;
+        } else if (cmp === 0) {
+          if (actor < o.getCreatedAt().getActorID()) {
+            return [dest, diff];
+          }
+          scanning = false;
+        } else {
+          scanning = false;
+        }
+        scanned.add(o);
+        continue;
+      }
+      if (!oLeft || !scanned.has(oLeft)) {
+        break;
+      }
+      scanned.add(o);
+    }
+    return [dest, diff];
+  }
+
+  /**
    * `insertAfter` inserts the given node after the given previous node.
    */
   public insertAfter(
@@ -2070,6 +2430,21 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       return [node.getNext(), diff];
     }
 
+    if (node.isSkeleton()) {
+      // A skeleton holds no value and is not in the GC registry: its
+      // remainder is a skeleton too and needs neither size accounting nor a
+      // GC pair.
+      const splitNode = node.split(offset);
+      this.treeByIndex.updateWeight(splitNode);
+      this.insertAfter(node, splitNode);
+      const insNext = node.getInsNext();
+      if (insNext) {
+        insNext.setInsPrev(splitNode);
+      }
+      splitNode.setInsPrev(node);
+      return [splitNode, diff];
+    }
+
     const prvSize = node.getDataSize();
 
     const splitNode = node.split(offset);
@@ -2159,6 +2534,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     const [leftEdge, rightEdge] = this.findEdgesOfCandidates(candidates);
     nodesToKeep.push(leftEdge);
     for (const node of candidates) {
+      // A skeleton's removal was stable everywhere when it was collected,
+      // and a purged node is not there to remove: leave it alone.
+      if (node.isSkeleton()) {
+        nodesToKeep.push(node);
+        continue;
+      }
       let creationKnown = false;
       if (isLocal) {
         creationKnown = true;
@@ -2315,9 +2696,81 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   }
 
   /**
-   * `purge` physically purges the given node from RGATreeSplit.
+   * `purge` collects the given tombstone. The node stays in the chain as a
+   * skeleton: insertion origins name nodes by ID, and `integrate` scans "the
+   * nodes between the two origins", so both have to look the same on a
+   * replica that collected this tombstone and on one that did not. Only the
+   * content and attributes go; attribute GC pairs keep pointing at the old
+   * value, so they still purge. The caller reads the node's size before.
    */
   public purge(node: RGATreeSplitNode<T>): void {
+    if (node.isSkeleton()) {
+      return;
+    }
+    this.cancelled?.delete(node);
+    node.toSkeleton(node.getContentLength(), this.skeletonValue(node));
+    this.mergeSkeletons(node);
+  }
+
+  /**
+   * `skeletonValue` returns the empty value skeletons share.
+   */
+  private skeletonValue(node: RGATreeSplitNode<T>): T {
+    if (!this.skelValue) {
+      const v = node.getValue();
+      this.skelValue = (
+        v.skeletonValue ? v.skeletonValue() : v.substring(0, 0)
+      ) as T;
+    }
+    return this.skelValue;
+  }
+
+  /**
+   * `mergeSkeletons` folds a skeleton into adjacent skeletons that continue
+   * the same insertion (same createdAt, contiguous offsets, adjacent in the
+   * chain). How an insertion is split into pieces already differs between
+   * replicas, so placement cannot depend on it; the merged node keeps the
+   * leftmost piece's ID and origin, and a later lookup inside it splits it
+   * again.
+   */
+  private mergeSkeletons(node: RGATreeSplitNode<T>): void {
+    const prev = node.getPrev();
+    if (prev && this.canMergeSkeletons(prev, node)) {
+      this.absorbSkeleton(prev, node);
+      node = prev;
+    }
+    const next = node.getNext();
+    if (next && this.canMergeSkeletons(node, next)) {
+      this.absorbSkeleton(node, next);
+    }
+  }
+
+  private canMergeSkeletons(
+    a: RGATreeSplitNode<T>,
+    b: RGATreeSplitNode<T>,
+  ): boolean {
+    return (
+      a.isSkeleton() &&
+      b.isSkeleton() &&
+      a.getNext() === b &&
+      b.getInsPrev() === a &&
+      a.getID().hasSameCreatedAt(b.getID()) &&
+      a.getID().getOffset() + a.getSkeletonLength() === b.getID().getOffset()
+    );
+  }
+
+  /**
+   * `absorbSkeleton` merges `b` (`a`'s next) into `a`.
+   */
+  private absorbSkeleton(a: RGATreeSplitNode<T>, b: RGATreeSplitNode<T>): void {
+    a.growSkeleton(b.getSkeletonLength());
+    this.unlink(b);
+  }
+
+  /**
+   * `unlink` takes the given node out of the chain and both trees.
+   */
+  private unlink(node: RGATreeSplitNode<T>): void {
     this.cancelled?.delete(node);
     this.treeByIndex.delete(node);
     this.treeByID.remove(node.getID());

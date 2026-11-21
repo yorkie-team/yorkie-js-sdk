@@ -65,11 +65,12 @@ describe('toTreePos', function () {
     assert.isTrue(p.isRemoved);
     assert.isTrue(text.isRemoved);
 
-    // Purge <p> while its text child is still around. Purge clears the purged
-    // node's own parent link and touches none of its children, so the text
-    // node keeps pointing at a <p> that no longer hangs off the root.
-    tree.purge(p);
-    assert.isUndefined(p.parent, 'purge unlinks the node it purges');
+    // Detach <p> while its text child is still around, so the text node
+    // keeps pointing at a <p> that no longer hangs off the root. Purge used
+    // to leave this shape; it now keeps a collected node in place as a
+    // skeleton, so the shape is built directly to keep the guard covered.
+    tree.getRoot().removeChild(p);
+    assert.isUndefined(p.parent, 'the detached node has no parent');
     assert.isDefined(text.parent, 'but leaves its children pointing at it');
 
     // Resolving a position anchored at the text node now walks

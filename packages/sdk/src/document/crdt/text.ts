@@ -20,6 +20,7 @@ import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import { RHT, RHTNode, RHTWrite } from '@yorkie-js/sdk/src/document/crdt/rht';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import {
+  InsertOrigin,
   RGATreeSplit,
   RGATreeSplitNode,
   RGATreeSplitNodeID,
@@ -116,6 +117,13 @@ export class CRDTTextValue {
     );
     value.attributes = this.attributes.deepcopy();
     return value;
+  }
+
+  /**
+   * `skeletonValue` returns the empty value a collected tombstone keeps.
+   */
+  public skeletonValue(): CRDTTextValue {
+    return CRDTTextValue.create('');
   }
 
   /**
@@ -315,6 +323,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     versionVector?: VersionVector,
+    origin?: InsertOrigin,
   ): [
     Array<TextChange<A>>,
     Array<GCPair>,
@@ -331,7 +340,13 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     }
 
     const [caretPos, pairs, diff, valueChanges, removedValues, removedSpans] =
-      this.rgaTreeSplit.edit(range, editedAt, crdtTextValue, versionVector);
+      this.rgaTreeSplit.edit(
+        range,
+        editedAt,
+        crdtTextValue,
+        versionVector,
+        origin,
+      );
 
     const changes: Array<TextChange<A>> = valueChanges.map((change) => ({
       ...change,
@@ -355,6 +370,15 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       removedValues,
       removedSpans,
     ];
+  }
+
+  /**
+   * `localOrigin` returns the insertion origin of a local insert at the
+   * given position: the boundary itself and the character right after it.
+   */
+  public localOrigin(pos: RGATreeSplitPos): InsertOrigin {
+    const left = pos.getAbsoluteID();
+    return { left, right: this.rgaTreeSplit.rightOriginOf(left) };
   }
 
   /**
@@ -920,6 +944,10 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     // nodes: `CRDTTextValue.getDataSize` skips removed attributes, matching
     // the tree half, so those bytes are not in live either.
     for (const node of this.rgaTreeSplit) {
+      if (node.isSkeleton()) {
+        // Already collected.
+        continue;
+      }
       if (node.getRemovedAt()) {
         pairs.push({
           parent: this.rgaTreeSplit,

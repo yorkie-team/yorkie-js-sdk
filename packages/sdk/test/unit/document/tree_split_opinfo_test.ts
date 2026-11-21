@@ -292,15 +292,12 @@ describe('Tree split OpInfo with a concurrent insert at the split boundary', () 
       splitLevel: 2,
     },
     {
-      // Known gap, reported but not fixed: the split is corrected at its
-      // first level only. Here the *paragraph* level is the one §7.3 makes
-      // keep the concurrent `<t>XY</t>` on its left, and it keeps it across
-      // the `<t></t>` the first level minted, so the result
-      // (`<p><t>abc</t><t>XY</t></p><p><t></t></p>`) is the two children
-      // reordered as well as split. No split position, at any level,
-      // describes a reorder, so the change still reports the first level's
-      // boundary and a binding replaying it moves `XY` into the new
-      // paragraph. Expressing it would need the change to carry a move.
+      // The insert carries an origin naming the boundary after the first
+      // paragraph's `<t>`, so the paragraph-level split keeps it on the right
+      // of the cut, after the `<t></t>` the first level minted, where a
+      // replica that saw the insert first placed it. Before origins, §7.3
+      // kept it on the left, which reordered the two children as well as
+      // splitting them, and no split position could describe that.
       name: 'concurrent element insert at the paragraph boundary, split level 2',
       insert: (t) =>
         t.editByPath([0, 1], [0, 1], {
@@ -309,7 +306,6 @@ describe('Tree split OpInfo with a concurrent insert at the split boundary', () 
         }),
       split: (t) => t.editByPath([0, 0, 3], [0, 0, 3], undefined, 2),
       splitLevel: 2,
-      fails: true,
     },
     {
       name: 'both split the same text boundary',

@@ -139,7 +139,8 @@ const cases: Array<{
   // the other tombstoned (#1408, not fixed here). Text must still agree.
   emptySpanResidue?: boolean;
   // Tombstones may sit in a different order on each side (a merge against
-  // a split; main does the same). Compare shapes after GC only.
+  // a split; main does the same). Physical purge used to erase that; a
+  // skeleton keeps it, so only the content is compared.
   tombstoneOrder?: boolean;
 }> = [
   {
@@ -307,11 +308,20 @@ describe('Tree split-sibling cascade of a deleted element', () => {
           d2.garbageCollect(vv);
           assert.equal(d1.getGarbageLen(), 0, 'garbage left on d1');
           assert.equal(d2.getGarbageLen(), 0, 'garbage left on d2');
-          if (!residue) {
+          // Collection keeps tombstones in place as skeletons, so a case
+          // whose tombstones settle in a different order on each side keeps
+          // that difference; only the content has to agree there.
+          if (!residue && !tc.tombstoneOrder) {
             assert.equal(
               treeShape(d1),
               treeShape(d2),
               'shape diverged after gc',
+            );
+          } else if (!residue) {
+            assert.equal(
+              d1.getRoot().t.toXML(),
+              d2.getRoot().t.toXML(),
+              'content diverged after gc',
             );
           }
         });

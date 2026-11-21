@@ -122,6 +122,15 @@ message Operation {
     // are addressed by original identity so a revived neighbour keeps its
     // relative order across chained undo/redo. restore_mode selects direction.
     repeated RestoreSpan retombstone_spans = 10;
+    // The insertion origin of content (see RGATreeSplit.integrate). Its left
+    // is the from position, so origin_left is only set when it is not.
+    // origin_right is the character right after the caret, tombstones
+    // included; origin_right_at_from says it is the character at from itself
+    // (an insert in the middle of a node) and origin_right is omitted.
+    bool has_origin = 11;
+    TextNodeID origin_left = 12;
+    TextNodeID origin_right = 13;
+    bool origin_right_at_from = 14;
   }
   message Style {
     TimeTicket parent_created_at = 1;
@@ -154,6 +163,10 @@ message Operation {
     // written before this field existed, which replays through the simulation
     // that reconstructed them from executed_at and the content count.
     repeated TimeTicket split_tickets = 11;
+    // has_origin marks an insertion placed by the right-origin rule. The left
+    // origin is recomputed from `from`, so only the right origin is carried.
+    bool has_origin = 12;
+    TreeNodeID origin_right = 13;
   }
   message TreeStyle {
     TimeTicket parent_created_at = 1;
@@ -292,6 +305,20 @@ message TextNode {
   // undo cancelling only its own actor's removal; a change to that rule needs
   // a new field, not a new reading of this one.
   repeated TimeTicket removal_events = 6;
+  // The insertion origin of this node (see RGATreeSplit.integrate). Origins
+  // that point at a neighbour are written as origin_flags bits instead of
+  // IDs: 1 left is the end of the previous node, 2 left is this node itself
+  // (a split piece), 4 right is the next node, 8 right is the previous
+  // node's right.
+  bool has_origin = 7;
+  TextNodeID origin_left = 8;
+  TextNodeID origin_right = 9;
+  uint32 origin_flags = 10;
+  // skeleton_len > 0 marks a garbage-collected tombstone kept only for its
+  // position: value, attributes and removed_at are dropped; the ID range
+  // [id.offset, id.offset + skeleton_len) and the origins are kept so
+  // insertion origins that name it resolve the same on every replica.
+  uint32 skeleton_len = 11;
 }
 
 message TextNodeID {
@@ -317,6 +344,14 @@ message TreeNode {
   // the merge-time causal boundary for SplitElement. See
   // docs/design/concurrent-merge-split.md for details.
   TimeTicket merged_at = 10;
+  // Insertion origin used by the right-origin placement rule.
+  bool has_origin = 11;
+  TreeNodeID origin_left = 12;
+  TreeNodeID origin_right = 13;
+  reserved 14; // origin_flags
+  // skeleton_len > 0 marks a collected node kept in place: the UTF-16 length
+  // for text, 1 for an element.
+  uint32 skeleton_len = 15;
 }
 
 message TreeNodes {

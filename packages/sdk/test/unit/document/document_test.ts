@@ -1241,8 +1241,11 @@ describe.sequential('Document', function () {
     doc.update((root) => root.k1.edit(1, 3, ''));
     assert.equal(doc.getRoot().k1.getTreeByID().size(), 3);
 
+    // The collected node stays as a skeleton, so origins that name it
+    // still resolve; adjacent skeletons of one insertion would merge.
     doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
-    assert.equal(doc.getRoot().k1.getTreeByID().size(), 2);
+    assert.equal(doc.getRoot().k1.getTreeByID().size(), 3);
+    assert.equal(doc.getRoot().k1.toString(), 'A');
   });
 
   it('should handle escape string for strings containing single quotes', function () {

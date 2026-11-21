@@ -452,7 +452,9 @@ describe('Text.normalizePos', () => {
     }
 
     // Guard the harness: every branch above has to have been reached.
-    assert.isAbove(counts.refused, 100);
+    // GC keeps collected pieces as skeletons, so no position is refused any
+    // more: every piece a position names is still in the chain.
+    assert.equal(counts.refused, 0);
     assert.isAbove(counts.floored, 100);
     assert.isAbove(counts.boundary, 100);
   });

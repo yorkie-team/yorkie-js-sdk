@@ -3668,11 +3668,11 @@ describe('Tree.edit(concurrent, side by side range)', () => {
       await c1.sync();
       assert.equal(
         d1.getRoot().t.toXML(),
-        /*html*/ `<r><i></i><b></b><p></p></r>`,
+        /*html*/ `<r><b></b><i></i><p></p></r>`,
       );
       assert.equal(
         d2.getRoot().t.toXML(),
-        /*html*/ `<r><i></i><b></b><p></p></r>`,
+        /*html*/ `<r><b></b><i></i><p></p></r>`,
       );
     }, task.name);
   });
@@ -3707,11 +3707,11 @@ describe('Tree.edit(concurrent, side by side range)', () => {
       await c1.sync();
       assert.equal(
         d1.getRoot().t.toXML(),
-        /*html*/ `<r><p><i></i><b></b></p></r>`,
+        /*html*/ `<r><p><b></b><i></i></p></r>`,
       );
       assert.equal(
         d2.getRoot().t.toXML(),
-        /*html*/ `<r><p><i></i><b></b></p></r>`,
+        /*html*/ `<r><p><b></b><i></i></p></r>`,
       );
     }, task.name);
   });
@@ -3746,11 +3746,11 @@ describe('Tree.edit(concurrent, side by side range)', () => {
       await c1.sync();
       assert.equal(
         d1.getRoot().t.toXML(),
-        /*html*/ `<r><p></p><i></i><b></b></r>`,
+        /*html*/ `<r><p></p><b></b><i></i></r>`,
       );
       assert.equal(
         d2.getRoot().t.toXML(),
-        /*html*/ `<r><p></p><i></i><b></b></r>`,
+        /*html*/ `<r><p></p><b></b><i></i></r>`,
       );
     }, task.name);
   });
@@ -3892,8 +3892,8 @@ describe('Tree.edit(concurrent, side by side range)', () => {
       await c1.sync();
       await c2.sync();
       await c1.sync();
-      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>BA12</p></r>`);
-      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>BA12</p></r>`);
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>AB12</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>AB12</p></r>`);
     }, task.name);
   });
 
@@ -3920,8 +3920,8 @@ describe('Tree.edit(concurrent, side by side range)', () => {
       await c1.sync();
       await c2.sync();
       await c1.sync();
-      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1BA2</p></r>`);
-      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1BA2</p></r>`);
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>1AB2</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>1AB2</p></r>`);
     }, task.name);
   });
 
@@ -3948,8 +3948,8 @@ describe('Tree.edit(concurrent, side by side range)', () => {
       await c1.sync();
       await c2.sync();
       await c1.sync();
-      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12BA</p></r>`);
-      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12BA</p></r>`);
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>12AB</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>12AB</p></r>`);
     }, task.name);
   });
 
@@ -6392,12 +6392,13 @@ describe('TreeLWW', () => {
         { type: 'a' },
       ]);
 
-      // Verify nodes exist
+      // Verify nodes exist. GC has collected <i>, which stays in place as a
+      // skeleton so insertion origins resolve the same on every replica.
       assert.isTrue(!!nodes1.get('b'));
-      assert.isFalse(!!nodes1.get('i'));
+      assert.isTrue(!nodes1.get('i') || nodes1.get('i')!.skeleton);
       assert.isTrue(!!nodes1.get('a'));
       assert.isTrue(!!nodes2.get('b'));
-      assert.isFalse(!!nodes2.get('i'));
+      assert.isTrue(!nodes2.get('i') || nodes2.get('i')!.skeleton);
       assert.isTrue(!!nodes2.get('a'));
 
       // Verify all remaining nodes are removed

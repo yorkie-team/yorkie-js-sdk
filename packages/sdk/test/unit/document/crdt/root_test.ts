@@ -152,7 +152,11 @@ describe('ROOT', function () {
     assert.equal(2, root.getGarbageLen());
 
     assert.equal(2, root.garbageCollect(maxVectorOf([])));
-    assert.equal('[0:00:0:0 ][1:00:3:0 Yorkie]', text.toTestString());
+    // Collected tombstones stay as skeletons: their positions, no content.
+    assert.equal(
+      '[0:00:0:0 ]{1:00:2:0 skel(6)}[1:00:3:0 Yorkie]{1:00:2:6 skel(5)}',
+      text.toTestString(),
+    );
     assert.equal(0, root.getGarbageLen());
   });
 

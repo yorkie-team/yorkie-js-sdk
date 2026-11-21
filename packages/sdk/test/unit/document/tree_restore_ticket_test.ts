@@ -376,10 +376,11 @@ function newTicketFixture(): TicketFixture {
   }
   assert.equal(b.getRoot().t.toXML(), '<r><p>ad</p></r>');
   assert.equal(c.getRoot().t.toXML(), '<r><p>ad</p></r>');
-  assert.isUndefined(
-    nodeByID(a, textID!),
-    'the removed text must be PURGED, not merely tombstoned — otherwise the ' +
-      'undo takes the un-tombstone path and never reaches recreateFromSpan',
+  assert.isTrue(
+    nodeByID(a, textID!)?.skeleton,
+    'the removed text must be COLLECTED (a skeleton), not merely tombstoned ' +
+      '— otherwise the undo takes the un-tombstone path and never reaches ' +
+      'the path that rebuilds a collected node',
   );
 
   // Neither remover has seen the other, so the two removals are concurrent

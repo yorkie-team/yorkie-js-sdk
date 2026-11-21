@@ -115,11 +115,14 @@ export class Text<A extends Indexable = Indexable> {
     }
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
     const ticket = this.context.issueTimeTicket();
+    const origin = content ? this.text.localOrigin(range[0]) : undefined;
     const [, pairs, diff, rangeAfterEdit] = this.text.edit(
       range,
       content,
       ticket,
       attrs,
+      undefined,
+      origin,
     );
 
     this.context!.acc(diff);
@@ -136,6 +139,11 @@ export class Text<A extends Indexable = Indexable> {
         content,
         attrs ? new Map(Object.entries(attrs)) : new Map(),
         ticket,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        origin,
       ),
     );
 
